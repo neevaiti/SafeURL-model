@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+
+  api_feature_engineering: 
+    build: ./src/feature_engineering/
+    ports:
+      - 8060:8060
+    depends_on:
+       - api_model
+    command: "uvicorn api_interactive:app --host 0.0.0.0 --port 8060"
+
+  api_model:
+    build: ./src/ask_model/
+    ports:
+      - 8050:8050
+    command: "uvicorn api_model:app --host 0.0.0.0 --port 8050"
