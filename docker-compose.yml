@@ -5,11 +5,18 @@ services:
     build: ./src/api/interact_model/
     ports:
       - 8060:8060
-    # command: sh -c "uvicorn api:app --host 0.0.0.0 --port 8060"
+    env_file:
+      - ./src/api/interact_model/.env
+    networks:
+      - api_network
 
   api_model:
     build: ./src/api/model/
     ports:
       - 8050:8050
-    # command: sh -c "uvicorn api:app --host 0.0.0.0 --port 8050"
+    networks:
+      - api_network
 
+networks:
+  api_network:
+    driver: bridge
