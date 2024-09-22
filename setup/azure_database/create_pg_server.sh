@@ -3,18 +3,20 @@
 source ./.env
 
 #### CREATE RESOURCE GROUP ####
+echo "Creating resource group : $RESOURCE_GROUP"
 az group create \
     --name "$RESOURCE_GROUP" \
     --location "$SERVER_LOCATION"
 
 
 #### CREATE SERVER ####
+echo "Creating server : $SERVER_NAME"
 az postgres flexible-server create \
     --resource-group "$RESOURCE_GROUP" \
     --name "$SERVER_NAME" \
     --location "$SERVER_LOCATION" \
     --admin-user "$ADMIN_USER" \
-    --admin-password "$ADMIN_PASSWORD" \
+    --admin-password "$ADMIN_PASS" \
     --tier "$TIER_SPECS" \
     --sku-name "$SKU_SPECS" \
     --version "$PG_VERSION" \
@@ -23,7 +25,8 @@ az postgres flexible-server create \
 
 
 #### CREATE DATABASE ####
-az postgres db create \
-    --resource-group $RESOURCE_GROUP \
-    --server $SERVER_NAME \
-    --name $DB_NAME
+echo "Creating database : $DB_NAME"
+az postgres flexible-server db create \
+    --resource-group "$RESOURCE_GROUP" \
+    --server-name "$SERVER_NAME" \
+    --database-name "$DB_NAME"
