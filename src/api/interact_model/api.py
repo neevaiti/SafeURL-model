@@ -1,15 +1,22 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Security
 from fastapi.openapi.utils import get_openapi
 from fastapi.security import APIKeyHeader
-import requests
-import os
-import pandas as pd
+from tenacity import retry, stop_after_attempt, wait_fixed
+from pydantic import BaseModel, HttpUrl
 from dotenv import load_dotenv
-import psycopg2
+
+import os
+import sys
+import pandas as pd
+import asyncpg
 import logging
+import aiohttp
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.script_fengineering import extract_features
 from utils.clean_url import clean_url
+from utils.read_result import read_result
 
 load_dotenv()
 
@@ -22,17 +29,20 @@ API_MODEL_KEY = os.getenv("API_MODEL_KEY")
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Database connection
-conn = psycopg2.connect(
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"),
-    host=os.getenv("DB_HOST"),
-    port=os.getenv("DB_PORT"),
-    database=os.getenv("DB_NAME")
-)
-cursor = conn.cursor()
+# Asynchronous database connection
+async def get_db_connection():
+    return await asyncpg.connect(
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        database=os.getenv("DB_NAME")
+    )
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+class UrlInput(BaseModel):
+    url: HttpUrl
 
 @app.middleware("http")
 async def verify_api_key(request: Request, call_next):
@@ -49,116 +59,99 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
         return api_key_header
     raise HTTPException(status_code=401, detail="Clé API invalide")
 
+# Retry mechanism for model API requests
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+async def fetch_prediction(session, model_api_url, headers, csv_string):
+    async with session.post(model_api_url, headers=headers, data=csv_string, timeout=10) as response:
+        if response.status == 200:
+            return await response.json()
+        else:
+            raise HTTPException(status_code=500, detail="Model API request failed")
+
 @app.post("/prepare/")
-async def prepare_data(url: str, api_key: str = Depends(get_api_key)):
-    url = clean_url(url)
+async def prepare_data(data: UrlInput, api_key: str = Depends(get_api_key)):
+    url = clean_url(data.url)
     features = extract_features(url)
     
-    # Ensure 'url' column is present in features
     if 'url' not in features:
         features['url'] = url
 
     features_df = pd.DataFrame([features])
 
-    # Log the columns of the DataFrame
-    logger.debug(f"Features DataFrame columns: {features_df.columns.tolist()}")
-
-    # Remove 'url' from features for prediction
     features_for_prediction = features_df.drop(columns=['url'])
-
-    # Convert all columns to integers
     features_for_prediction = features_for_prediction.apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
 
     csv_string = features_for_prediction.to_csv(index=False)
 
     model_api_url = "http://api_model:12500/predict/"
-    headers = {
-        "X-API-Key": API_MODEL_KEY
-    }
+    headers = {"X-API-Key": API_MODEL_KEY}
 
-    response = requests.post(model_api_url, headers=headers, data=csv_string)
+    async with aiohttp.ClientSession() as session:
+        prediction_response = await fetch_prediction(session, model_api_url, headers, csv_string)
 
-    if response.status_code == 200:
-        prediction = response.json()["prediction"]
-        logger.info(f"Prediction received: {prediction}")
+    # Extraire la prédiction en entier
+    prediction_int = prediction_response["prediction"][0]  # Extraire l'entier de la liste [0] ou [1]
 
-        # Insert URL and prediction into the database
-        try:
+    # Convertir la prédiction entière en chaîne ('safe' ou 'phishing')
+    prediction_str = read_result(prediction_int)
+
+    logger.info(f"Prediction received: {prediction_str} (as int: {prediction_int})")
+
+    conn = await get_db_connection()
+
+    try:
+        async with conn.transaction():
+            # Insertion dans la table Model_training avec prédiction en entier
             for index, row in features_df.iterrows():
-                # Log the columns of the DataFrame before dropping 'url'
-                logger.debug(f"Features DataFrame columns before dropping 'url': {features_df.columns.tolist()}")
-
-                # Remove 'url' from features_df to avoid duplication
                 row = row.drop(labels=['url'])
-                
-                # Log the columns of the row after dropping 'url'
-                logger.debug(f"Row columns after dropping 'url': {row.index.tolist()}")
-                logger.debug(f"Row values after dropping 'url': {row.values.tolist()}")
 
-                # Log the values to be inserted
                 values_to_insert = (
-                    url, prediction, int(row['use_of_ip']), int(row['abnormal_url']), int(row['count_www']), int(row['count_point']),
-                    int(row['count_at']), int(row['count_https']), int(row['count_http']), int(row['count_percent']), int(row['count_question']),
-                    int(row['count_dash']), int(row['count_equal']), int(row['count_dir']), int(row['count_embed_domain']), int(row['short_url']),
-                    int(row['url_length']), int(row['hostname_length']), int(row['sus_url']), int(row['count_digits']), int(row['count_letters']),
-                    int(row['fd_length']), int(row['tld_length'])
+                    url, prediction_int,  # Insertion de l'entier dans la table Model_training
+                    int(row['use_of_ip']), int(row['abnormal_url']), int(row['count_www']), 
+                    int(row['count_point']), int(row['count_at']), int(row['count_https']), 
+                    int(row['count_http']), int(row['count_percent']), int(row['count_question']), 
+                    int(row['count_dash']), int(row['count_equal']), int(row['count_dir']), 
+                    int(row['count_embed_domain']), int(row['short_url']), int(row['url_length']), 
+                    int(row['hostname_length']), int(row['sus_url']), int(row['count_digits']), 
+                    int(row['count_letters']), int(row['fd_length']), int(row['tld_length'])
                 )
-                logger.debug(f"Inserting values: {values_to_insert}")
-                logger.debug(f"Number of values to insert: {len(values_to_insert)}")
 
-                # Log each value with its index
-                for i, value in enumerate(values_to_insert):
-                    logger.debug(f"Value {i}: {value}")
-
-                # Ensure the number of values matches the number of columns (excluding the auto-incremented ID)
-                if len(values_to_insert) != 23:
-                    raise ValueError(f"Number of values to insert ({len(values_to_insert)}) does not match the number of columns (23)")
-
-                cursor.execute("""
+                await conn.execute("""
                     INSERT INTO Model_training (url, type, use_of_ip, abnormal_url, count_www, count_point, count_at, 
                                                 count_https, count_http, count_percent, count_question, count_dash, 
                                                 count_equal, count_dir, count_embed_domain, short_url, url_length, 
                                                 hostname_length, sus_url, count_digits, count_letters, fd_length, tld_length)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, values_to_insert)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+                """, *values_to_insert)
 
-            # Vérifier si l'URL existe déjà
-            cursor.execute("SELECT id FROM List_url WHERE url = %s", (url,))
-            existing_url = cursor.fetchone()
-
-            if existing_url is None:
-                # Récupérer le dernier ID utilisé
-                cursor.execute("SELECT MAX(id) FROM List_url")
-                last_id = cursor.fetchone()[0]
-                
-                # Si la table est vide, commencer à 1, sinon incrémenter
+            # Vérification de l'existence de l'URL dans List_url
+            existing_url = await conn.fetchrow("SELECT id FROM List_url WHERE url = $1", url)
+            if not existing_url:
+                # Insertion dans la table List_url avec prédiction en tant que texte
+                last_id = await conn.fetchval("SELECT MAX(id) FROM List_url")
                 new_id = 1 if last_id is None else last_id + 1
-                
-                # L'URL n'existe pas, on l'insère avec le nouvel ID
-                cursor.execute("""
-                    INSERT INTO List_url (id, url, type) VALUES (%s, %s, %s)
-                """, (new_id, url, prediction))
+                await conn.execute("""
+                    INSERT INTO List_url (id, url, type) VALUES ($1, $2, $3)
+                """, new_id, url, prediction_str)  # Insertion de la prédiction en tant que texte
             else:
                 logger.info(f"URL {url} already exists in List_url table. Skipping insertion.")
 
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Failed to insert into database: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to insert into database")
+    except Exception as e:
+        logger.error(f"Failed to insert into database: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to insert into database")
+    finally:
+        await conn.close()
 
-        return {"prediction": prediction}
-    else:
-        raise HTTPException(status_code=500, detail="Model API request failed")
+    return {"prediction": prediction_str}
 
-# Ajoutez cette fonction à la fin de votre fichier
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        title="API d'interaction avec le modèle.",
+        title="API d'interaction avec le modèle d'IA.",
         version="1.0.0",
-        description="API pour préparer les données et interagir avec le modèle prédictif.",
+        description="API pour préparer les données et interagir avec le modèle d'IA.",
         routes=app.routes,
     )
     openapi_schema["components"]["securitySchemes"] = {

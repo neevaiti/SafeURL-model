@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS Model_training (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT,
     type INTEGER,
     use_of_ip INTEGER,
@@ -26,16 +26,15 @@ CREATE TABLE IF NOT EXISTS Model_training (
 );
 
 CREATE TABLE IF NOT EXISTS List_url (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT,
-    type TEXT
+    type TEXT,
+    CONSTRAINT unique_url UNIQUE (url)
 );
 
 CREATE TABLE IF NOT EXISTS Log (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     level TEXT,
     message TEXT
 );
-
-ALTER TABLE List_url ADD CONSTRAINT unique_url UNIQUE (url);
