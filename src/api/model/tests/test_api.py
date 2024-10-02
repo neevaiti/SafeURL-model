@@ -3,14 +3,13 @@ import sqlite3
 import pandas as pd
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, mock_open
-from api.model.api import app, get_db_connection
-
+from api.model.api import app, get_db_connection, MODEL_DIR
 import os
+import tempfile
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Chargement des variables d'environnement
 API_MODEL_KEY = os.getenv("API_MODEL_KEY")
 
 # Fonction pour exécuter le script SQL pour créer les tables
@@ -24,7 +23,6 @@ def run_sql_script(connection, script_path):
 # Fixture qui crée une base de données SQLite temporaire pour les tests
 @pytest.fixture
 def test_db():
-    # Remonter à la racine du projet à partir de src/api/model/tests
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     script_path = os.path.join(project_root, "setup", "azure_database", "db_test_create_tables.sql")
     
@@ -37,8 +35,12 @@ def test_db():
 @pytest.fixture
 def client(test_db):
     app.dependency_overrides[get_db_connection] = lambda: test_db
-    with TestClient(app) as client:
-        yield client
+
+    # Utiliser un répertoire temporaire pour les modèles
+    with tempfile.TemporaryDirectory() as temp_model_dir:
+        with patch("api.model.api.MODEL_DIR", temp_model_dir):
+            with TestClient(app) as client:
+                yield client
 
 # Mock pour simuler l'ouverture du fichier 'model.pkl' et le chargement du modèle
 @pytest.fixture
@@ -106,4 +108,4 @@ def test_predict_model(client, mock_model_loading):
 
         # Vérifie que la réponse est correcte
         assert response.status_code == 200
-        assert response.json() == {"prediction": [[0]]}
+        assert response.json() == {"prediction": [0]}
