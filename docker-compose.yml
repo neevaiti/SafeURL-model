@@ -1,6 +1,4 @@
-version: '3.8'
 services:
-
   api_interact: 
     build: ./src/api/interact_model/
     ports:
@@ -18,6 +16,8 @@ services:
       - ./src/api/model/.env
     networks:
       - api_network
+    volumes:
+      - ./models:/models
 
 networks:
   api_network:

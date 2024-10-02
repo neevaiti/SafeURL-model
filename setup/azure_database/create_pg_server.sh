@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ./.env
+source .env
 
 #### CREATE RESOURCE GROUP ####
 echo "Creating resource group : $RESOURCE_GROUP"
@@ -30,3 +30,16 @@ az postgres flexible-server db create \
     --resource-group "$RESOURCE_GROUP" \
     --server-name "$SERVER_NAME" \
     --database-name "$DB_NAME"
+
+
+#### FIND TABLES CREATOR SCRIPT ####
+sqlScript="../azure_database/create_tables.sql"
+
+
+#### CREATE DATABASE TABLES ####
+psql -h "$SERVER_ADRESS" -d "$DB_NAME" -U "$ADMIN_USER" -f $sqlScript
+
+
+#### ADD DATA TO List_url ####
+listurlcsv="/Users/ant/Desktop/Projects/SafeURL-model/dataset/df_1000.csv"
+psql -h "$SERVER_ADRESS" -d "$DB_NAME" -U "$ADMIN_USER" -c"\copy list_url FROM '$listurlcsv' DELIMITER ',' CSV HEADER;"

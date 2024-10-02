@@ -117,7 +117,7 @@ async def prepare_data(data: UrlInput, api_key: str = Depends(get_api_key)):
                 )
 
                 await conn.execute("""
-                    INSERT INTO Model_training (url, type, use_of_ip, abnormal_url, count_www, count_point, count_at, 
+                    INSERT INTO model_training (url, type, use_of_ip, abnormal_url, count_www, count_point, count_at, 
                                                 count_https, count_http, count_percent, count_question, count_dash, 
                                                 count_equal, count_dir, count_embed_domain, short_url, url_length, 
                                                 hostname_length, sus_url, count_digits, count_letters, fd_length, tld_length)
@@ -125,16 +125,16 @@ async def prepare_data(data: UrlInput, api_key: str = Depends(get_api_key)):
                 """, *values_to_insert)
 
             # Vérification de l'existence de l'URL dans List_url
-            existing_url = await conn.fetchrow("SELECT id FROM List_url WHERE url = $1", url)
+            existing_url = await conn.fetchrow("SELECT id FROM list_url WHERE url = $1", url)
             if not existing_url:
                 # Insertion dans la table List_url avec prédiction en tant que texte
-                last_id = await conn.fetchval("SELECT MAX(id) FROM List_url")
+                last_id = await conn.fetchval("SELECT MAX(id) FROM list_url")
                 new_id = 1 if last_id is None else last_id + 1
                 await conn.execute("""
-                    INSERT INTO List_url (id, url, type) VALUES ($1, $2, $3)
+                    INSERT INTO list_url (id, url, type) VALUES ($1, $2, $3)
                 """, new_id, url, prediction_str)  # Insertion de la prédiction en tant que texte
             else:
-                logger.info(f"URL {url} already exists in List_url table. Skipping insertion.")
+                logger.info(f"URL {url} already exists in list_url table. Skipping insertion.")
 
     except Exception as e:
         logger.error(f"Failed to insert into database: {str(e)}")
