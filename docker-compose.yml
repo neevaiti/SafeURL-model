@@ -10,8 +10,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
-      - API_MODEL_KEY=${API_MODEL_KEY
-      - API_KEY=${API_KEY}}
+      - API_MODEL_KEY=${API_MODEL_KEY}
+      - API_KEY=${API_KEY}
     networks:
       - api_network
 
@@ -26,8 +26,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
-      - API_MODEL_KEY=${API_MODEL_KEY
-      - API_KEY=${API_KEY}}
+      - API_MODEL_KEY=${API_MODEL_KEY}
+      - API_KEY=${API_KEY}
     networks:
       - api_network
     volumes:
