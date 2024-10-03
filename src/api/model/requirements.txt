@@ -123,7 +123,7 @@ tld==0.13
 tldextract==5.1.1
 tokenizers==0.15.1
 tomli==2.0.1
-tornado==6.4
+tornado==6.4.1
 tqdm==4.66.1
 traitlets==5.14.1
 typing_extensions==4.9.0
