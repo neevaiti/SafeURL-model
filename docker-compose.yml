@@ -4,8 +4,14 @@ services:
     image: neevaiti/api_interact:latest
     ports:
       - 12600:12600
-    env_file:
-      - src/api/model/.env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - API_MODEL_KEY=${API_MODEL_KEY
+      - API_KEY=${API_KEY}}
     networks:
       - api_network
 
@@ -14,8 +20,14 @@ services:
     image: neevaiti/api_model:latest
     ports:
       - 12500:12500
-    env_file:
-      - src/api/model/.env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - API_MODEL_KEY=${API_MODEL_KEY
+      - API_KEY=${API_KEY}}
     networks:
       - api_network
     volumes:
