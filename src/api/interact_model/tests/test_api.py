@@ -60,3 +60,20 @@ def test_prepare_data(client, mock_fetch_prediction):
 
     # Vérifie que l'appel à l'API de modèle a été fait correctement
     mock_fetch_prediction.assert_called_once()
+    
+
+def test_subtraction():
+    assert 10 - 5 == 5
+
+def test_list_equality():
+    assert [1, 2, 3] == [1, 2, 3]
+
+def test_key_in_dict():
+    sample_dict = {"name": "John", "age": 30}
+    assert "age" in sample_dict
+
+def test_not_in_list():
+    assert 5 not in [1, 2, 3, 4]
+
+def test_string_length():
+    assert len("pytest") == 6

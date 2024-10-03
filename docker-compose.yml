@@ -1,23 +1,25 @@
 services:
   api_interact: 
     build: ./src/api/interact_model/
+    image: neevaiti/api_interact:latest
     ports:
       - 12600:12600
     env_file:
-      - ./src/api/interact_model/.env
+      - src/api/model/.env
     networks:
       - api_network
 
   api_model:
     build: ./src/api/model/
+    image: neevaiti/api_model:latest
     ports:
       - 12500:12500
     env_file:
-      - ./src/api/model/.env
+      - src/api/model/.env
     networks:
       - api_network
     volumes:
-      - ./models:/models
+      - models:/app/models
 
 networks:
   api_network:

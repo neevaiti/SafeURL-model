@@ -1,21 +1,21 @@
 import os
+import asyncpg
+import sqlite3
+import json
 import pickle
 import logging
 import pandas as pd
 import numpy as np
+
 from fastapi import FastAPI, HTTPException, Request, Depends, Security
 from fastapi.security import APIKeyHeader
 from fastapi.openapi.utils import get_openapi
 from io import StringIO
 from dotenv import load_dotenv
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
+from sklearn.ensemble import RandomForestClassifier
 from datetime import datetime
-from enum import Enum
-import asyncpg
-import sqlite3
-import json
-import tempfile
+
 
 # Chargement des variables d'environnement
 load_dotenv()
@@ -23,17 +23,14 @@ load_dotenv()
 # Initialisation de l'application FastAPI
 app = FastAPI()
 
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-API_MODEL_KEY = os.getenv("API_MODEL_KEY")
-IS_TEST = os.getenv("IS_TEST", "False").lower() == "true"
-
-
 # Configuration du logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-logger.debug(f"API_MODEL_KEY loaded: {'*' * len(API_MODEL_KEY)}")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+API_MODEL_KEY = os.getenv("API_MODEL_KEY")
+IS_TEST = os.getenv("IS_TEST", "false").lower() == "true"
 
 # Chemin de stockage des modèles
 MODEL_DIR = "/app/models"
@@ -121,7 +118,7 @@ class DatabaseManager:
 
     async def connect(self):
         """Initialise la connexion à la base de données."""
-        if IS_TEST:
+        if os.getenv("IS_TEST", "false").lower() == "true":
             self.conn = sqlite3.connect(":memory:")
         else:
             self.conn = await asyncpg.connect(
@@ -215,69 +212,52 @@ async def predict(request: Request, api_key: str = Depends(get_api_key)):
         await db_manager.close()
 
 
-# Endpoint pour entraîner un nouveau modèle
+# Endpoint pour entraîner un nouveau modèle avec noms de colonnes descriptifs
 @app.post("/train/")
 async def train(api_key: str = Depends(get_api_key)):
     await db_manager.connect()
     try:
         logger.info("Début de l'entraînement du modèle")
-        await db_manager.log_to_database('INFO', "Début de l'entraînement du modèle")
-
-        # Charger le modèle de base existant
-        base_model_path = os.path.join(MODEL_DIR, "model_v2024.pkl")
-        if not os.path.exists(base_model_path):
-            raise HTTPException(status_code=404, detail="Modèle de base introuvable.")
-
-        with open(base_model_path, 'rb') as file:
-            model = pickle.load(file)  # Charger le modèle de base
-
-        logger.info(f"Modèle de base chargé depuis {base_model_path}")
-        await db_manager.log_to_database('INFO', f"Modèle de base chargé depuis {base_model_path}")
 
         # Charger les données d'entraînement depuis la base de données
         rows = await db_manager.fetch("SELECT * FROM model_training")
 
-        # Conversion des données en DataFrame
-        data = pd.DataFrame(rows, columns=['id', 'url', 'type'] + [f'feature_{i}' for i in range(1, 22)])
+        # Les noms des colonnes descriptives
+        columns = ['id', 'url', 'type', 'use_of_ip', 'abnormal_url', 'count_www', 'count_point', 'count_at', 
+                   'count_https', 'count_http', 'count_percent', 'count_question', 'count_dash', 'count_equal', 
+                   'count_dir', 'count_embed_domain', 'short_url', 'url_length', 'hostname_length', 'sus_url', 
+                   'fd_length', 'tld_length', 'count_digits', 'count_letters']
+
+        data = pd.DataFrame(rows, columns=columns)
         if data.empty:
             raise HTTPException(status_code=400, detail="Aucune donnée d'entraînement disponible.")
 
-        logger.info(f"Données d'entraînement chargées avec {data.shape[0]} lignes et {data.shape[1]} colonnes.")
-        await db_manager.log_to_database('INFO', f"Données d'entraînement chargées avec {data.shape[0]} lignes et {data.shape[1]} colonnes.")
-
-        # Préparation des données
-        X = data.drop(columns=['id', 'url', 'type'])
+        # Extraire X et y avec les bonnes colonnes
+        X = data[['use_of_ip', 'abnormal_url', 'count_point', 'count_www', 'count_at', 'count_dir',
+                  'count_embed_domain', 'short_url', 'count_https', 'count_http', 'count_percent', 
+                  'count_question', 'count_dash', 'count_equal', 'url_length', 'hostname_length',
+                  'sus_url', 'fd_length', 'tld_length', 'count_digits', 'count_letters']]
         y = data['type']
 
-        # Réentraîner le modèle
+        # Entraîner le modèle
+        model = RandomForestClassifier()
         model.fit(X, y)
 
-        y_pred = model.predict(X)
-        report = classification_report(y, y_pred, target_names=['safe', 'phishing'], output_dict=True)
+        # Sauvegarder l'ordre des colonnes
+        model_columns = X.columns.tolist()
 
-        metrics = {
-            "accuracy": report['accuracy'],
-            "precision_safe": report['safe']['precision'],
-            "recall_safe": report['safe']['recall'],
-            "f1_safe": report['safe']['f1-score'],
-            "precision_phishing": report['phishing']['precision'],
-            "recall_phishing": report['phishing']['recall'],
-            "f1_phishing": report['phishing']['f1-score']
-        }
-
-        # Sauvegarder la nouvelle version du modèle avec versioning
-        await model_manager.save_model_version(model, metrics)
+        # Sauvegarder le modèle et l'ordre des colonnes
+        await model_manager.save_model_version(model, {"columns": model_columns})
 
         logger.info("Entraînement du modèle terminé avec succès")
-        await db_manager.log_to_database('INFO', "Entraînement du modèle terminé avec succès")
-
         return {"detail": "Entraînement du modèle terminé avec succès"}
     except Exception as e:
         logger.error(f"Erreur lors de l'entraînement: {str(e)}")
-        await db_manager.log_to_database('ERROR', f"Erreur lors de l'entraînement: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         await db_manager.close()
+
+
 
 
 # Endpoint pour supprimer un modèle spécifique
