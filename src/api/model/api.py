@@ -96,18 +96,16 @@ class ModelManager:
             # Sauvegarder le modèle en local
             with open(model_path, 'wb') as file:
                 pickle.dump(model, file)
-            logger.info(f"Version du modèle {version} sauvegardée dans {model_path}")
+            logger.info(f"Version du modèle {model_filename} sauvegardée dans {model_path}")
 
             # Sauvegarder les informations de version en base de données
             query = """
             INSERT INTO model_versions (version, model_path, metrics, created_at)
             VALUES ($1, $2, $3, $4)
             """
-            await db_manager.conn.execute(query, version, model_path, json.dumps(metrics), datetime.now())
-            logger.info(f"Model version {version} saved to the database")
-
+            await db_manager.conn.execute(query, model_filename, model_path, json.dumps(metrics), datetime.now())
         except Exception as e:
-            logger.error(f"Failed to save model version {version}: {e}")
+            logger.error(f"Erreur lors de la sauvegarde du modèle: {str(e)}")
             raise
 
 
@@ -213,6 +211,7 @@ async def predict(request: Request, api_key: str = Depends(get_api_key)):
 
 
 # Endpoint pour entraîner un nouveau modèle avec noms de colonnes descriptifs
+
 @app.post("/train/")
 async def train(api_key: str = Depends(get_api_key)):
     await db_manager.connect()
@@ -243,19 +242,23 @@ async def train(api_key: str = Depends(get_api_key)):
         model = RandomForestClassifier()
         model.fit(X, y)
 
-        # Sauvegarder l'ordre des colonnes
-        model_columns = X.columns.tolist()
+        # Prédire sur les données d'entraînement pour obtenir les métriques
+        y_pred = model.predict(X)
+        report = classification_report(y, y_pred, output_dict=True)
 
-        # Sauvegarder le modèle et l'ordre des colonnes
-        await model_manager.save_model_version(model, {"columns": model_columns})
+        # Sauvegarder le modèle et les métriques
+        metrics_json = json.dumps({"metrics": report})
+        await model_manager.save_model_version(model, metrics_json)
+        logger.info(f"Métriques sauvegardées: {metrics_json}")
 
         logger.info("Entraînement du modèle terminé avec succès")
-        return {"detail": "Entraînement du modèle terminé avec succès"}
+        return {"detail": "Entraînement du modèle terminé avec succès", "metrics": report}
     except Exception as e:
         logger.error(f"Erreur lors de l'entraînement: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         await db_manager.close()
+
 
 
 
@@ -305,6 +308,27 @@ async def delete_model(version: str, api_key: str = Depends(get_api_key)):
     finally:
         await db_manager.close()
 
+
+# Endpoint pour récupérer les métriques d'un modèle spécifique
+@app.get("/model-metrics/{version}")
+async def get_model_metrics(version: str, api_key: str = Depends(get_api_key)):
+    await db_manager.connect()
+    try:
+        query = "SELECT metrics FROM model_versions WHERE version = $1"
+        result = await db_manager.conn.fetchrow(query, version)
+        
+        if not result:
+            logger.error(f"Aucune métrique trouvée pour la version {version}")
+            raise HTTPException(status_code=404, detail="Version de modèle introuvable")
+        
+        metrics = result['metrics']
+        logger.info(f"Métriques récupérées pour la version {version}: {metrics}")
+        return {"metrics": json.loads(metrics)}
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des métriques: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des métriques")
+    finally:
+        await db_manager.close()
 
 # Endpoint pour lister les modèles disponibles
 @app.get("/models/")
