@@ -33,6 +33,44 @@ services:
     volumes:
       - models:/app/models
 
+  api_database:
+    build: ./src/api/database/
+    image: neevaiti/api_database:latest
+    ports:
+      - 12400:12400
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - DB_API_KEY=${DB_API_KEY}
+    networks:
+      - api_network
+
+
+  web:
+    build: ./src/website/
+    image: neevaiti/web:latest
+    ports:
+      - 12700:12700
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - API_MODEL_KEY=${API_MODEL_KEY}
+      - API_KEY=${API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    networks:
+      - api_network
+    depends_on:
+      - api_interact
+      - api_model
+      - api_database
 networks:
   api_network:
     driver: bridge
