@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}SafeURL - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Bienvenue sur le Tableau de Bord Admin</h1>
+    <p>Utilisez les liens ci-dessous pour gérer les modèles et les utilisateurs.</p>
+    <ul>
+        <li><a href="{% url 'list_models' %}">Lister les Modèles</a></li>
+        <li><a href="{% url 'train_model' %}">Entraîner un Modèle</a></li>
+    </ul>
+</div>
+{% endblock %}

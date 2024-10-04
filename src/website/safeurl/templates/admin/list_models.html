@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Liste des Modèles{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Liste des Modèles Disponibles</h1>
+    <ul>
+        {% for model in models %}
+            <li>
+                {{ model }}
+                <a href="{% url 'load_model' model %}">Charger</a>
+                <a href="{% url 'delete_model' model %}">Supprimer</a>
+                <a href="{% url 'inspect_model' model %}">Inspecter</a>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

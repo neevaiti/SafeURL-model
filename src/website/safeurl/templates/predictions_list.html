@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}SafeURL - Historique des Prédictions{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Historique des Prédictions</h1>
+    <table class="table mt-3">
+        <thead>
+            <tr>
+                <th>URL</th>
+                <th>Prédiction</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for prediction in predictions %}
+            <tr>
+                <td>{{ prediction.url }}</td>
+                <td>{{ prediction.prediction }}</td>
+                <td>{{ prediction.created_at }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">Aucune prédiction trouvée.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{% url 'predict' %}" class="btn btn-primary">Faire une nouvelle prédiction</a>
+</div>
+{% endblock %}

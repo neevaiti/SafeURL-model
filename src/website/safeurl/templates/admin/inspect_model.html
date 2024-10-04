@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Inspection du modèle - SafeURL{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Inspection du modèle {{ version }}</h2>
+
+    {% if metrics %}
+        <h3>Métriques :</h3>
+        
+        <h4>Accuracy globale : {{ metrics.accuracy|floatformat:3 }}</h4>
+        
+        <h4>Métriques par classe :</h4>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Classe</th>
+                    <th>Précision</th>
+                    <th>Rappel</th>
+                    <th>F1-score</th>
+                    <th>Support</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for class, values in metrics.classes.items %}
+                <tr>
+                    <td>{{ class }}</td>
+                    <td>{{ values.precision|floatformat:3 }}</td>
+                    <td>{{ values.recall|floatformat:3 }}</td>
+                    <td>{{ values.f1_score|floatformat:3 }}</td>
+                    <td>{{ values.support }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h4>Moyennes :</h4>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Précision</th>
+                    <th>Rappel</th>
+                    <th>F1-score</th>
+                    <th>Support</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Macro Avg</td>
+                    <td>{{ metrics.macro_avg.precision|floatformat:3 }}</td>
+                    <td>{{ metrics.macro_avg.recall|floatformat:3 }}</td>
+                    <td>{{ metrics.macro_avg.f1_score|floatformat:3 }}</td>
+                    <td>{{ metrics.macro_avg.support }}</td>
+                </tr>
+                <tr>
+                    <td>Weighted Avg</td>
+                    <td>{{ metrics.weighted_avg.precision|floatformat:3 }}</td>
+                    <td>{{ metrics.weighted_avg.recall|floatformat:3 }}</td>
+                    <td>{{ metrics.weighted_avg.f1_score|floatformat:3 }}</td>
+                    <td>{{ metrics.weighted_avg.support }}</td>
+                </tr>
+            </tbody>
+        </table>
+    {% else %}
+        <p>Aucune métrique disponible pour ce modèle.</p>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}SafeURL - Faire une Prédiction{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Faire une Prédiction</h1>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="url">URL</label>
+            <input type="url" class="form-control" id="url" name="url" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Prédire</button>
+    </form>
+    {% if prediction %}
+    <h2 class="mt-4">Prédiction: {{ prediction }}</h2>
+    {% endif %}
+</div>
+{% endblock %}
