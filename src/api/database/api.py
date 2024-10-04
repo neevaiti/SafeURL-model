@@ -20,7 +20,12 @@ app = FastAPI()
 
 # Classe pour la gestion de la base de données
 class DatabaseManager:
+    """
+    Classe pour gérer la connexion à la base de données PostgreSQL.
+    """
+
     def __init__(self):
+        """Initialise le gestionnaire de base de données sans connexion active."""
         self.conn = None
 
     async def connect(self):
@@ -41,6 +46,12 @@ class DatabaseManager:
 db_manager = DatabaseManager()
 
 async def get_db():
+    """
+    Fournit une connexion à la base de données pour les opérations asynchrones.
+
+    Yields:
+        asyncpg.Connection: Connexion à la base de données.
+    """
     await db_manager.connect()
     try:
         yield db_manager.conn
@@ -49,6 +60,18 @@ async def get_db():
 
 # Modèles Pydantic
 class ModelTraining(BaseModel):
+    """
+    Modèle de données pour l'entraînement du modèle.
+
+    Attributes:
+        url (str): L'URL à analyser.
+        type (int): Le type de l'URL (e.g., phishing, safe).
+        use_of_ip (int): Indicateur d'utilisation d'une adresse IP.
+        abnormal_url (int): Indicateur d'URL anormale.
+        count_www (int): Nombre de 'www' dans l'URL.
+        count_point (int): Nombre de points dans l'URL.
+        ...
+    """
     url: str
     type: int
     use_of_ip: int
@@ -74,14 +97,36 @@ class ModelTraining(BaseModel):
     tld_length: int
 
 class ListUrl(BaseModel):
+    """
+    Modèle de données pour la liste des URLs.
+
+    Attributes:
+        url (str): L'URL à enregistrer.
+        type (str): Le type de l'URL (e.g., phishing, safe).
+    """
     url: str
     type: str
 
 class Log(BaseModel):
+    """
+    Modèle de données pour les logs.
+
+    Attributes:
+        level (str): Le niveau du log (e.g., INFO, ERROR).
+        message (str): Le message du log.
+    """
     level: str
     message: str
 
 class ModelVersion(BaseModel):
+    """
+    Modèle de données pour les versions de modèles.
+
+    Attributes:
+        version (str): La version du modèle.
+        model_path (str): Le chemin du modèle.
+        metrics (Optional[Dict]): Les métriques associées au modèle.
+    """
     version: str
     model_path: str
     metrics: Optional[Dict]
@@ -91,6 +136,18 @@ class ModelVersion(BaseModel):
 
 # Vérification de la clé API
 async def get_api_key(api_key_header: str = Security(api_key_header)):
+    """
+    Vérifie la clé API fournie dans l'en-tête.
+
+    Args:
+        api_key_header (str): La clé API fournie.
+
+    Returns:
+        str: La clé API validée.
+
+    Raises:
+        HTTPException: Si la clé API est invalide ou absente.
+    """
     if api_key_header == DB_API_KEY:
         return api_key_header
     else:
@@ -99,6 +156,16 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
 # Middleware pour sécuriser toutes les requêtes sauf la documentation
 @app.middleware("http")
 async def verify_api_key(request: Request, call_next):
+    """
+    Middleware pour vérifier la clé API dans les requêtes HTTP.
+
+    Args:
+        request (Request): La requête HTTP.
+        call_next (Callable): La fonction suivante à appeler dans la chaîne de middleware.
+
+    Returns:
+        Response: La réponse HTTP après vérification de la clé API.
+    """
     excluded_paths = ["/docs", "/openapi.json", "/redoc"]
     if request.url.path not in excluded_paths:
         api_key = request.headers.get("X-API-Key")
@@ -111,6 +178,17 @@ async def verify_api_key(request: Request, call_next):
 # Endpoints CRUD pour `model_training`
 @app.post("/model_training/")
 async def create_model_training(model: ModelTraining, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Crée un nouvel enregistrement d'entraînement de modèle.
+
+    Args:
+        model (ModelTraining): Les données d'entraînement du modèle.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: L'identifiant de l'enregistrement créé.
+    """
     query = """
     INSERT INTO model_training (url, type, use_of_ip, abnormal_url, count_www, count_point)
     VALUES ($1, $2, $3, $4, $5, $6)
@@ -124,6 +202,17 @@ async def create_model_training(model: ModelTraining, db = Depends(get_db), api_
 
 @app.get("/model_training/{id}", response_model=ModelTraining)
 async def get_model_training(id: int, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Récupère un enregistrement d'entraînement de modèle par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        ModelTraining: Les données de l'enregistrement.
+    """
     query = "SELECT * FROM model_training WHERE id = $1"
     result = await db.fetchrow(query, id)
     if not result:
@@ -132,6 +221,18 @@ async def get_model_training(id: int, db = Depends(get_db), api_key: str = Depen
 
 @app.put("/model_training/{id}")
 async def update_model_training(id: int, model: ModelTraining, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Met à jour un enregistrement d'entraînement de modèle par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        model (ModelTraining): Les nouvelles données d'entraînement du modèle.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la mise à jour.
+    """
     query = """
     UPDATE model_training
     SET url = $1, type = $2, use_of_ip = $3, abnormal_url = $4, count_www = $5, count_point = $6
@@ -142,6 +243,17 @@ async def update_model_training(id: int, model: ModelTraining, db = Depends(get_
 
 @app.delete("/model_training/{id}")
 async def delete_model_training(id: int, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Supprime un enregistrement d'entraînement de modèle par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la suppression.
+    """
     query = "DELETE FROM model_training WHERE id = $1"
     result = await db.execute(query, id)
     if result == "DELETE 0":
@@ -151,6 +263,17 @@ async def delete_model_training(id: int, db = Depends(get_db), api_key: str = De
 # Endpoints CRUD pour `list_url`
 @app.post("/list_url/")
 async def create_list_url(list_url: ListUrl, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Crée un nouvel enregistrement dans la liste des URLs.
+
+    Args:
+        list_url (ListUrl): Les données de l'URL à enregistrer.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: L'identifiant de l'enregistrement créé.
+    """
     query = "INSERT INTO list_url (url, type) VALUES ($1, $2) RETURNING id"
     try:
         result = await db.fetchval(query, list_url.url, list_url.type)
@@ -160,6 +283,17 @@ async def create_list_url(list_url: ListUrl, db = Depends(get_db), api_key: str 
 
 @app.get("/list_url/{id}", response_model=ListUrl)
 async def get_list_url(id: int, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Récupère un enregistrement de la liste des URLs par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        ListUrl: Les données de l'enregistrement.
+    """
     query = "SELECT * FROM list_url WHERE id = $1"
     result = await db.fetchrow(query, id)
     if not result:
@@ -168,6 +302,18 @@ async def get_list_url(id: int, db = Depends(get_db), api_key: str = Depends(get
 
 @app.put("/list_url/{id}")
 async def update_list_url(id: int, list_url: ListUrl, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Met à jour un enregistrement de la liste des URLs par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        list_url (ListUrl): Les nouvelles données de l'URL.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la mise à jour.
+    """
     query = """
     UPDATE list_url
     SET url = $1, type = $2
@@ -178,6 +324,17 @@ async def update_list_url(id: int, list_url: ListUrl, db = Depends(get_db), api_
 
 @app.delete("/list_url/{id}")
 async def delete_list_url(id: int, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Supprime un enregistrement de la liste des URLs par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la suppression.
+    """
     query = "DELETE FROM list_url WHERE id = $1"
     result = await db.execute(query, id)
     if result == "DELETE 0":
@@ -187,6 +344,17 @@ async def delete_list_url(id: int, db = Depends(get_db), api_key: str = Depends(
 # Endpoints CRUD pour `logs`
 @app.post("/logs/")
 async def create_log(log: Log, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Crée un nouvel enregistrement de log.
+
+    Args:
+        log (Log): Les données du log à enregistrer.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: L'identifiant de l'enregistrement créé.
+    """
     query = "INSERT INTO logs (level, message) VALUES ($1, $2) RETURNING id"
     try:
         result = await db.fetchval(query, log.level, log.message)
@@ -196,6 +364,16 @@ async def create_log(log: Log, db = Depends(get_db), api_key: str = Depends(get_
 
 @app.get("/logs/")
 async def get_logs(db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Récupère les 100 derniers enregistrements de logs.
+
+    Args:
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        list: Liste des enregistrements de logs.
+    """
     query = "SELECT * FROM logs ORDER BY date DESC LIMIT 100"
     logs = await db.fetch(query)
     return [dict(log) for log in logs]
@@ -203,6 +381,17 @@ async def get_logs(db = Depends(get_db), api_key: str = Depends(get_api_key)):
 # Endpoints CRUD pour `model_versions`
 @app.post("/model_versions/")
 async def create_model_version(model_version: ModelVersion, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Crée un nouvel enregistrement de version de modèle.
+
+    Args:
+        model_version (ModelVersion): Les données de la version du modèle.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: L'identifiant de l'enregistrement créé.
+    """
     query = """
     INSERT INTO model_versions (version, model_path, metrics, created_at)
     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
@@ -216,6 +405,17 @@ async def create_model_version(model_version: ModelVersion, db = Depends(get_db)
 
 @app.get("/model_versions/{id}", response_model=ModelVersion)
 async def get_model_version(id: int, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Récupère un enregistrement de version de modèle par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        ModelVersion: Les données de l'enregistrement.
+    """
     query = "SELECT * FROM model_versions WHERE id = $1"
     result = await db.fetchrow(query, id)
     if not result:
@@ -224,6 +424,18 @@ async def get_model_version(id: int, db = Depends(get_db), api_key: str = Depend
 
 @app.put("/model_versions/{id}")
 async def update_model_version(id: int, model_version: ModelVersion, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Met à jour un enregistrement de version de modèle par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        model_version (ModelVersion): Les nouvelles données de la version du modèle.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la mise à jour.
+    """
     query = """
     UPDATE model_versions
     SET version = $1, model_path = $2, metrics = $3
@@ -234,6 +446,17 @@ async def update_model_version(id: int, model_version: ModelVersion, db = Depend
 
 @app.delete("/model_versions/{id}")
 async def delete_model_version(id: int, db = Depends(get_db), api_key: str = Depends(get_api_key)):
+    """
+    Supprime un enregistrement de version de modèle par ID.
+
+    Args:
+        id (int): L'identifiant de l'enregistrement.
+        db (asyncpg.Connection): Connexion à la base de données.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la suppression.
+    """
     query = "DELETE FROM model_versions WHERE id = $1"
     result = await db.execute(query, id)
     if result == "DELETE 0":
@@ -242,6 +465,12 @@ async def delete_model_version(id: int, db = Depends(get_db), api_key: str = Dep
 
 # Personnalisation de la documentation pour inclure la clé API
 def custom_openapi():
+    """
+    Personnalise le schéma OpenAPI pour inclure la sécurité de la clé API.
+
+    Returns:
+        dict: Le schéma OpenAPI personnalisé.
+    """
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
