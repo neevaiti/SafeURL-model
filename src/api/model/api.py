@@ -27,6 +27,7 @@ app = FastAPI()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 API_MODEL_KEY = os.getenv("API_MODEL_KEY")
@@ -38,17 +39,38 @@ if not os.path.exists(MODEL_DIR):
     os.makedirs(MODEL_DIR)
 
 logger.debug(f"Model directory set to: {MODEL_DIR}")
+
+
     
 
 # Classe pour la gestion des modèles
 class ModelManager:
+    """
+    Classe pour la gestion des modèles.
+
+    Attributes:
+        model_dir (str): Le répertoire où les modèles sont stockés.
+        model (Any): Le modèle actuellement chargé en mémoire.
+    """
+
     def __init__(self, model_dir):
+        """
+        Initialise le gestionnaire de modèles avec le répertoire spécifié.
+
+        Args:
+            model_dir (str): Le répertoire où les modèles sont stockés.
+        """
         self.model_dir = model_dir
         self.model = None
         os.makedirs(self.model_dir, exist_ok=True)
 
     def load_latest_model(self):
-        """Charge le modèle le plus récent depuis le répertoire des modèles."""
+        """
+        Charge le modèle le plus récent depuis le répertoire des modèles.
+
+        Raises:
+            FileNotFoundError: Si aucun modèle n'est trouvé dans le répertoire.
+        """
         model_files = sorted(
             [f for f in os.listdir(self.model_dir) if f.startswith("model_v") and f.endswith(".pkl")],
             key=lambda f: int(f.split("_v")[1].split(".pkl")[0]),
@@ -64,7 +86,18 @@ class ModelManager:
         logger.info(f"Modèle chargé depuis {model_path}")
 
     def load_model(self, version: str):
-        """Charge un modèle spécifique basé sur la version donnée."""
+        """
+        Charge un modèle spécifique basé sur la version donnée.
+
+        Args:
+            version (str): La version du modèle à charger.
+
+        Returns:
+            str: Le chemin du modèle chargé.
+
+        Raises:
+            FileNotFoundError: Si le modèle spécifié n'est pas trouvé.
+        """
         model_path = os.path.join(self.model_dir, version)
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Modèle {version} introuvable.")
@@ -75,30 +108,46 @@ class ModelManager:
         return model_path
 
     def get_model(self):
-        """Retourne le modèle en mémoire ou charge le dernier modèle disponible."""
+        """
+        Retourne le modèle en mémoire ou charge le dernier modèle disponible.
+
+        Returns:
+            Any: Le modèle actuellement chargé.
+        """
         if self.model is None:
             self.load_latest_model()
         return self.model
 
     def get_available_models(self):
-        """Retourne la liste des modèles disponibles dans le répertoire."""
+        """
+        Retourne la liste des modèles disponibles dans le répertoire.
+
+        Returns:
+            list: Liste des fichiers de modèles disponibles.
+        """
         return [f for f in os.listdir(self.model_dir) if f.startswith("model_v") and f.endswith(".pkl")]
 
-# Fonction pour sauvegarder le modèle avec versioning
     async def save_model_version(self, model, metrics):
-        """Sauvegarde le modèle avec versioning dans le répertoire des modèles et enregistre les informations de version dans la base de données."""
+        """
+        Sauvegarde le modèle avec versioning dans le répertoire des modèles et enregistre les informations de version dans la base de données.
+
+        Args:
+            model (Any): Le modèle à sauvegarder.
+            metrics (dict): Les métriques associées au modèle.
+
+        Raises:
+            Exception: Si une erreur survient lors de la sauvegarde.
+        """
         version = datetime.now().strftime("%Y%m%d%H%M%S")
         model_filename = f"model_v{version}.pkl"
         model_path = os.path.join(MODEL_DIR, model_filename)
 
         try:
             logger.debug(f"Attempting to save model to {model_path}")
-            # Sauvegarder le modèle en local
             with open(model_path, 'wb') as file:
                 pickle.dump(model, file)
             logger.info(f"Version du modèle {model_filename} sauvegardée dans {model_path}")
 
-            # Sauvegarder les informations de version en base de données
             query = """
             INSERT INTO model_versions (version, model_path, metrics, created_at)
             VALUES ($1, $2, $3, $4)
@@ -111,11 +160,20 @@ class ModelManager:
 
 # Classe pour la gestion des logs et la connexion à la base de données
 class DatabaseManager:
+    """
+    Classe pour la gestion des logs et la connexion à la base de données.
+    """
+
     def __init__(self):
+        """Initialise le gestionnaire de base de données."""
         self.conn = None
 
     async def connect(self):
-        """Initialise la connexion à la base de données."""
+        """
+        Initialise la connexion à la base de données.
+
+        Utilise une base de données en mémoire pour les tests, sinon se connecte à une base de données PostgreSQL.
+        """
         if os.getenv("IS_TEST", "false").lower() == "true":
             self.conn = sqlite3.connect(":memory:")
         else:
@@ -136,7 +194,13 @@ class DatabaseManager:
                 await self.conn.close()
 
     async def log_to_database(self, level, message):
-        """Enregistre les logs dans la base de données."""
+        """
+        Enregistre les logs dans la base de données.
+
+        Args:
+            level (str): Le niveau du log (e.g., 'INFO', 'ERROR').
+            message (str): Le message du log.
+        """
         query = "INSERT INTO logs (level, message) VALUES ($1, $2)" if not IS_TEST else "INSERT INTO logs (level, message) VALUES (?, ?)"
         try:
             if IS_TEST:
@@ -149,14 +213,26 @@ class DatabaseManager:
             logger.error(f"Échec de l'enregistrement du log dans la base de données: {e}")
 
     async def fetch(self, query, *args):
-        """Récupère les résultats de la base de données en fonction d'une requête SQL."""
+        """
+        Récupère les résultats de la base de données en fonction d'une requête SQL.
+
+        Args:
+            query (str): La requête SQL à exécuter.
+            *args: Les arguments pour la requête SQL.
+
+        Returns:
+            list: Les résultats de la requête.
+
+        Raises:
+            Exception: Si une erreur survient lors de la récupération des données.
+        """
         try:
             if IS_TEST:
                 cursor = self.conn.cursor()
                 cursor.execute(query, args)
-                return cursor.fetchall()  # Retourne toutes les lignes
+                return cursor.fetchall()
             else:
-                return await self.conn.fetch(query, *args)  # asyncpg retourne toutes les lignes
+                return await self.conn.fetch(query, *args)
         except Exception as e:
             logger.error(f"Erreur lors de la récupération des données: {e}")
             raise
@@ -171,6 +247,16 @@ db_manager = DatabaseManager()
 # Middleware pour vérifier la clé API
 @app.middleware("http")
 async def verify_api_key(request: Request, call_next):
+    """
+    Middleware pour vérifier la clé API dans les requêtes HTTP.
+
+    Args:
+        request (Request): L'objet requête HTTP.
+        call_next (Callable): La fonction pour appeler la prochaine étape du middleware.
+
+    Returns:
+        Response: La réponse HTTP après vérification de la clé API.
+    """
     excluded_paths = ["/docs", "/openapi.json", "/redoc"]
     if request.url.path not in excluded_paths:
         api_key = request.headers.get("X-API-Key")
@@ -181,6 +267,18 @@ async def verify_api_key(request: Request, call_next):
 
 # Fonction pour vérifier et obtenir la clé API
 async def get_api_key(api_key_header: str = Security(APIKeyHeader(name="X-API-Key", auto_error=False))):
+    """
+    Vérifie et obtient la clé API depuis l'en-tête de la requête.
+
+    Args:
+        api_key_header (str): La clé API fournie dans l'en-tête.
+
+    Returns:
+        str: La clé API si elle est valide.
+
+    Raises:
+        HTTPException: Si la clé API est invalide.
+    """
     if api_key_header == API_MODEL_KEY:
         return api_key_header
     raise HTTPException(status_code=401, detail="Clé API invalide")
@@ -189,6 +287,19 @@ async def get_api_key(api_key_header: str = Security(APIKeyHeader(name="X-API-Ke
 # Endpoint pour prédire
 @app.post("/predict/")
 async def predict(request: Request, api_key: str = Depends(get_api_key)):
+    """
+    Endpoint pour effectuer une prédiction à partir des données fournies.
+
+    Args:
+        request (Request): L'objet requête HTTP contenant les données CSV.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Les résultats de la prédiction.
+
+    Raises:
+        HTTPException: Si une erreur survient lors de la prédiction.
+    """
     await db_manager.connect()
     model = model_manager.get_model()
 
@@ -214,14 +325,24 @@ async def predict(request: Request, api_key: str = Depends(get_api_key)):
 
 @app.post("/train/")
 async def train(api_key: str = Depends(get_api_key)):
+    """
+    Endpoint pour entraîner un nouveau modèle avec les données disponibles.
+
+    Args:
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Détails de l'entraînement et métriques du modèle.
+
+    Raises:
+        HTTPException: Si une erreur survient lors de l'entraînement.
+    """
     await db_manager.connect()
     try:
         logger.info("Début de l'entraînement du modèle")
 
-        # Charger les données d'entraînement depuis la base de données
         rows = await db_manager.fetch("SELECT * FROM model_training")
 
-        # Les noms des colonnes descriptives
         columns = ['id', 'url', 'type', 'use_of_ip', 'abnormal_url', 'count_www', 'count_point', 'count_at', 
                    'count_https', 'count_http', 'count_percent', 'count_question', 'count_dash', 'count_equal', 
                    'count_dir', 'count_embed_domain', 'short_url', 'url_length', 'hostname_length', 'sus_url', 
@@ -231,22 +352,18 @@ async def train(api_key: str = Depends(get_api_key)):
         if data.empty:
             raise HTTPException(status_code=400, detail="Aucune donnée d'entraînement disponible.")
 
-        # Extraire X et y avec les bonnes colonnes
         X = data[['use_of_ip', 'abnormal_url', 'count_point', 'count_www', 'count_at', 'count_dir',
                   'count_embed_domain', 'short_url', 'count_https', 'count_http', 'count_percent', 
                   'count_question', 'count_dash', 'count_equal', 'url_length', 'hostname_length',
                   'sus_url', 'fd_length', 'tld_length', 'count_digits', 'count_letters']]
         y = data['type']
 
-        # Entraîner le modèle
         model = RandomForestClassifier()
         model.fit(X, y)
 
-        # Prédire sur les données d'entraînement pour obtenir les métriques
         y_pred = model.predict(X)
         report = classification_report(y, y_pred, output_dict=True)
 
-        # Sauvegarder le modèle et les métriques
         metrics_json = json.dumps({"metrics": report})
         await model_manager.save_model_version(model, metrics_json)
         logger.info(f"Métriques sauvegardées: {metrics_json}")
@@ -266,10 +383,22 @@ async def train(api_key: str = Depends(get_api_key)):
 # Endpoint pour supprimer un modèle spécifique
 @app.delete("/delete-model/{version}")
 async def delete_model(version: str, api_key: str = Depends(get_api_key)):
+    """
+    Endpoint pour supprimer un modèle spécifique.
+
+    Args:
+        version (str): La version du modèle à supprimer.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Message de succès de la suppression.
+
+    Raises:
+        HTTPException: Si une erreur survient lors de la suppression.
+    """
     await db_manager.connect()
 
     try:
-        # Rechercher le modèle dans la base de données
         query = "SELECT model_path FROM model_versions WHERE version = $1"
         result = await db_manager.conn.fetchrow(query, version)
 
@@ -281,7 +410,6 @@ async def delete_model(version: str, api_key: str = Depends(get_api_key)):
         model_path = result['model_path']
         logger.debug(f"Version de modèle trouvée : {version}, chemin : {model_path}")
 
-        # Vérifier si le fichier existe sur le disque et le supprimer
         if os.path.exists(model_path):
             os.remove(model_path)
             logger.info(f"Fichier modèle {model_path} supprimé avec succès")
@@ -291,7 +419,6 @@ async def delete_model(version: str, api_key: str = Depends(get_api_key)):
             await db_manager.log_to_database('ERROR', f"Fichier modèle {model_path} introuvable sur le disque")
             raise HTTPException(status_code=404, detail="Fichier modèle introuvable")
 
-        # Supprimer les informations du modèle de la base de données
         delete_query = "DELETE FROM model_versions WHERE version = $1"
         await db_manager.conn.execute(delete_query, version)
 
@@ -312,6 +439,19 @@ async def delete_model(version: str, api_key: str = Depends(get_api_key)):
 # Endpoint pour récupérer les métriques d'un modèle spécifique
 @app.get("/model-metrics/{version}")
 async def get_model_metrics(version: str, api_key: str = Depends(get_api_key)):
+    """
+    Endpoint pour récupérer les métriques d'un modèle spécifique.
+
+    Args:
+        version (str): La version du modèle pour laquelle récupérer les métriques.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: Les métriques du modèle.
+
+    Raises:
+        HTTPException: Si une erreur survient lors de la récupération des métriques.
+    """
     await db_manager.connect()
     try:
         query = "SELECT metrics FROM model_versions WHERE version = $1"
@@ -333,24 +473,38 @@ async def get_model_metrics(version: str, api_key: str = Depends(get_api_key)):
 # Endpoint pour lister les modèles disponibles
 @app.get("/models/")
 async def list_models():
-    """Retourne les modèles disponibles dans le répertoire des modèles"""
+    """
+    Endpoint pour lister les modèles disponibles.
+
+    Returns:
+        dict: Les modèles disponibles dans le répertoire des modèles.
+    """
     model_files = model_manager.get_available_models()
     return {"available_models": model_files}
 
 
 @app.get("/load-model/")
 async def load_specific_model(version: str):
-    """Charge un modèle spécifique en fonction de la version"""
+    """
+    Charge un modèle spécifique en fonction de la version.
+
+    Args:
+        version (str): La version du modèle à charger.
+
+    Returns:
+        dict: Message de succès du chargement du modèle.
+
+    Raises:
+        HTTPException: Si une erreur survient lors du chargement du modèle.
+    """
     await db_manager.connect()
 
     try:
         logger.info(f"Tentative de chargement du modèle version {version}")
         await db_manager.log_to_database('INFO', f"Tentative de chargement du modèle version {version}")
 
-        # Charger le modèle spécifique
         model_path = model_manager.load_model(version)
 
-        # Si le modèle est chargé avec succès
         logger.info(f"Modèle {version} chargé avec succès depuis {model_path}")
         await db_manager.log_to_database('INFO', f"Modèle {version} chargé avec succès depuis {model_path}")
 
@@ -369,7 +523,15 @@ async def load_specific_model(version: str):
     finally:
         await db_manager.close()
 
+
+
 def custom_openapi():
+    """
+    Personnalise le schéma OpenAPI pour inclure la sécurité de la clé API.
+
+    Returns:
+        dict: Le schéma OpenAPI personnalisé.
+    """
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
