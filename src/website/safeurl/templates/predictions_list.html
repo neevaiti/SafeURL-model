@@ -3,10 +3,10 @@
 {% block title %}SafeURL - Historique des Prédictions{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <h1>Historique des Prédictions</h1>
-    <table class="table mt-3">
-        <thead>
+    <table class="table table-striped table-bordered mt-3">
+        <thead class="thead-dark">
             <tr>
                 <th>URL</th>
                 <th>Prédiction</th>
@@ -22,11 +22,11 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="3">Aucune prédiction trouvée.</td>
+                <td colspan="3" class="text-center">Aucune prédiction trouvée.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <a href="{% url 'predict' %}" class="btn btn-primary">Faire une nouvelle prédiction</a>
+    <a href="{% url 'predict' %}" class="btn btn-primary mt-3">Faire une nouvelle prédiction</a>
 </div>
 {% endblock %}

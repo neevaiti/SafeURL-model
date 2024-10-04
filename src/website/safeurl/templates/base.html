@@ -41,6 +41,9 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'train_model' %}">Entraîner un Modèle</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'monitoring' %}">Monitoring</a>
+                </li>
                 {% endif %}
                 <li class="nav-item">
                     <form method="post" action="{% url 'logout' %}" style="display: inline;">
@@ -55,8 +58,63 @@
 
     <div class="container mt-4">
         {% block content %}
+        <!-- Section d'accueil -->
+        <div class="jumbotron text-center">
+            <h1 class="display-4">Bienvenue sur SafeURL</h1>
+            <p class="lead">Votre solution pour lutter contre le phishing et sécuriser vos navigations en ligne.</p>
+            <hr class="my-4">
+            <p>Découvrez comment nous pouvons vous aider à protéger vos données.</p>
+            <a class="btn btn-primary btn-lg" href="{% url 'predict' %}" role="button">Commencer à Prédire</a>
+        </div>
+
+        <!-- Section des fonctionnalités -->
+        <div class="row">
+            <div class="col-md-4">
+                <h2>Analyse des URL</h2>
+                <p>SafeURL utilise des modèles d'intelligence artificielle (machine learning) pour analyser les URL et déterminer si elles sont sûres ou non.</p>
+            </div>
+            <div class="col-md-4">
+                <h2>Prédictions en ligne</h2>
+                <p>SafeURL permet de faire des prédictions en ligne de manière simple et efficace.</p>
+            </div>
+            <div class="col-md-4">
+                <h2>Historique des prédictions</h2>
+                <p>Retrouvez l'historique de vos prédictions.</p>
+            </div>
+        </div>
+
+        <!-- Section des témoignages -->
+        <div class="mt-5">
+            <h2 class="text-center">Témoignages</h2>
+            <blockquote class="blockquote text-center">
+                <p class="mb-0">"SafeURL a transformé notre manière de naviguer en ligne. Nous nous sentons beaucoup plus en sécurité."</p>
+                <footer class="blockquote-footer">Un utilisateur satisfait</footer>
+            </blockquote>
+        </div>
+
+        <!-- Section des statistiques -->
+        <div class="row mt-5">
+            <div class="col-md-4 text-center">
+                <h3>10000+</h3>
+                <p>Utilisateurs satisfaits</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <h3>50000+</h3>
+                <p>Prédictions effectuées</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <h3>99%</h3>
+                <p>Taux de précision</p>
+            </div>
+        </div>
         {% endblock %}
     </div>
+
+    <footer class="bg-light text-center text-lg-start mt-5">
+        <div class="text-center p-3">
+            © 2024 SafeURL. Tous droits réservés.
+        </div>
+    </footer>
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>

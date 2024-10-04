@@ -21,13 +21,22 @@ matplotlib.use('Agg')  # Utiliser le backend Agg qui ne nécessite pas de serveu
 
 load_dotenv()
 
-
 API_KEY = os.getenv('API_KEY')
 API_MODEL_KEY = os.getenv('API_MODEL_KEY')
 
-
-
 def home(request):
+    """
+    Vue pour la page d'accueil.
+
+    Redirige les utilisateurs authentifiés vers leur page d'accueil respective
+    (utilisateur normal ou administrateur).
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec la page d'accueil ou une redirection.
+    """
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect('admin_home')
@@ -36,6 +45,18 @@ def home(request):
     return redirect('login')
 
 def user_register(request):
+    """
+    Vue pour l'enregistrement des utilisateurs.
+
+    Permet aux utilisateurs de s'enregistrer et de se connecter automatiquement
+    après un enregistrement réussi.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec le formulaire d'enregistrement ou une redirection.
+    """
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
@@ -47,6 +68,17 @@ def user_register(request):
     return render(request, 'register.html', {'form': form})
 
 def user_login(request):
+    """
+    Vue pour la connexion des utilisateurs.
+
+    Authentifie les utilisateurs et les redirige vers leur page d'accueil respective.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec le formulaire de connexion ou une redirection.
+    """
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
@@ -60,6 +92,18 @@ def user_login(request):
 
 @login_required
 def predict(request):
+    """
+    Vue pour faire des prédictions sur les URLs.
+
+    Envoie l'URL à l'API d'interaction pour obtenir une prédiction et enregistre
+    le résultat dans la base de données.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec la page de prédiction.
+    """
     if request.method == 'POST':
         url = request.POST['url']
         response = requests.post('http://api_interact:12600/prepare/', json={'url': url}, headers={'X-API-Key': API_KEY})
@@ -70,18 +114,65 @@ def predict(request):
 
 @login_required
 def predictions_list(request):
+    """
+    Vue pour lister les prédictions de l'utilisateur.
+
+    Affiche les prédictions précédemment faites par l'utilisateur connecté.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec la liste des prédictions.
+    """
     predictions = Prediction.objects.filter(user=request.user).order_by('-created_at')
     return render(request, 'predictions_list.html', {'predictions': predictions})
-
 
 # ADMIN
 
 @staff_member_required
+def monitoring(request):
+    """
+    Vue pour la page de monitoring admin.
+
+    Affiche la page de monitoring pour les administrateurs.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec la page de monitoring.
+    """
+    return render(request, 'admin/monitoring.html')
+
+@staff_member_required
 def admin_home(request):
+    """
+    Vue pour la page d'accueil admin.
+
+    Affiche la page d'accueil pour les administrateurs.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec la page d'accueil admin.
+    """
     return render(request, 'admin/admin_home.html')
 
 @staff_member_required
 def train_model(request):
+    """
+    Vue pour entraîner le modèle.
+
+    Envoie une requête à l'API du modèle pour démarrer l'entraînement.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec le résultat de l'entraînement.
+    """
     headers = {'X-API-Key': API_MODEL_KEY}
     response = requests.post(f'http://api_model:12500/train/', headers=headers)
     
@@ -92,9 +183,19 @@ def train_model(request):
     
     return render(request, 'admin/train_model.html', {'message': message})
 
-
 @staff_member_required
 def list_models(request):
+    """
+    Vue pour lister les modèles disponibles.
+
+    Récupère la liste des modèles depuis l'API du modèle.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec la liste des modèles.
+    """
     headers = {'X-API-Key': API_MODEL_KEY}
     response = requests.get(f'http://api_model:12500/models/', headers=headers)
     models = response.json().get('available_models', [])
@@ -102,12 +203,23 @@ def list_models(request):
 
 @staff_member_required
 def inspect_model(request, version):
-    # Récupérer les métriques depuis l'API du modèle
+    """
+    Vue pour inspecter un modèle spécifique.
+
+    Récupère et affiche les métriques d'un modèle spécifique depuis l'API du modèle.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+        version (str): La version du modèle à inspecter.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec les métriques du modèle ou une erreur.
+    """
     headers = {'X-API-Key': API_MODEL_KEY}
     response = requests.get(f'http://api_model:12500/model-metrics/{version}', headers=headers)
     
     if response.status_code != 200:
-        return render(request, 'admin/error.html', {'error': 'Impossible de récupérer les mtriques du modèle'})
+        return render(request, 'admin/error.html', {'error': 'Impossible de récupérer les métriques du modèle'})
 
     metrics = response.json().get('metrics', {})
 
@@ -137,6 +249,18 @@ def inspect_model(request, version):
 
 @staff_member_required
 def delete_model(request, version):
+    """
+    Vue pour supprimer un modèle spécifique.
+
+    Envoie une requête à l'API du modèle pour supprimer un modèle spécifique.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+        version (str): La version du modèle à supprimer.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec le résultat de la suppression.
+    """
     headers = {'X-API-Key': API_MODEL_KEY}
     response = requests.delete(f'http://api_model:12500/delete-model/{version}', headers=headers)
     message = response.json().get('message', 'Erreur lors de la suppression du modèle.')
@@ -144,8 +268,19 @@ def delete_model(request, version):
 
 @staff_member_required
 def load_model(request, version):
+    """
+    Vue pour charger un modèle spécifique.
+
+    Envoie une requête à l'API du modèle pour charger un modèle spécifique.
+
+    Args:
+        request (HttpRequest): L'objet de requête HTTP.
+        version (str): La version du modèle à charger.
+
+    Returns:
+        HttpResponse: La réponse HTTP avec le résultat du chargement.
+    """
     headers = {'X-API-Key': API_MODEL_KEY}
     response = requests.get(f'http://api_model:12500/load-model/', params={'version': version}, headers=headers)
     message = response.json().get('message', 'Erreur lors du chargement du modèle.')
     return render(request, 'admin/load_model.html', {'message': message})
-

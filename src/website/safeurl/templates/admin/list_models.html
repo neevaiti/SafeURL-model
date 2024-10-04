@@ -3,15 +3,17 @@
 {% block title %}Liste des Modèles{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <h1>Liste des Modèles Disponibles</h1>
-    <ul>
+    <ul class="list-group">
         {% for model in models %}
-            <li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
                 {{ model }}
-                <a href="{% url 'load_model' model %}">Charger</a>
-                <a href="{% url 'delete_model' model %}">Supprimer</a>
-                <a href="{% url 'inspect_model' model %}">Inspecter</a>
+                <div>
+                    <a href="{% url 'load_model' model %}" class="btn btn-sm btn-info">Charger</a>
+                    <a href="{% url 'delete_model' model %}" class="btn btn-sm btn-danger">Supprimer</a>
+                    <a href="{% url 'inspect_model' model %}" class="btn btn-sm btn-secondary">Inspecter</a>
+                </div>
             </li>
         {% endfor %}
     </ul>
