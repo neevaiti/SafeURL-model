@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 
 # Asynchronous database connection
 async def get_db_connection():
+    """
+    Initialise une connexion asynchrone à la base de données PostgreSQL.
+
+    Returns:
+        asyncpg.Connection: Connexion à la base de données.
+    """
     return await asyncpg.connect(
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
@@ -42,10 +48,29 @@ async def get_db_connection():
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 class UrlInput(BaseModel):
+    """
+    Modèle de données pour l'entrée d'URL.
+
+    Attributes:
+        url (HttpUrl): L'URL à traiter.
+    """
     url: HttpUrl
 
 @app.middleware("http")
 async def verify_api_key(request: Request, call_next):
+    """
+    Middleware pour vérifier la clé API dans les requêtes HTTP.
+
+    Args:
+        request (Request): La requête HTTP.
+        call_next (Callable): La fonction suivante à appeler dans la chaîne de middleware.
+
+    Returns:
+        Response: La réponse HTTP après vérification de la clé API.
+
+    Raises:
+        HTTPException: Si la clé API est invalide.
+    """
     excluded_paths = ["/docs", "/openapi.json", "/redoc"]
     if request.url.path not in excluded_paths:
         api_key = request.headers.get("X-API-Key")
@@ -55,6 +80,18 @@ async def verify_api_key(request: Request, call_next):
     return response
 
 async def get_api_key(api_key_header: str = Security(api_key_header)):
+    """
+    Vérifie la clé API fournie dans l'en-tête.
+
+    Args:
+        api_key_header (str): La clé API fournie.
+
+    Returns:
+        str: La clé API validée.
+
+    Raises:
+        HTTPException: Si la clé API est invalide.
+    """
     if api_key_header == API_KEY:
         return api_key_header
     raise HTTPException(status_code=401, detail="Clé API invalide")
@@ -62,6 +99,21 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
 # Retry mechanism for model API requests
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
 async def fetch_prediction(session, model_api_url, headers, csv_string):
+    """
+    Envoie une requête à l'API du modèle pour obtenir une prédiction, avec un mécanisme de retry.
+
+    Args:
+        session (aiohttp.ClientSession): La session HTTP asynchrone.
+        model_api_url (str): L'URL de l'API du modèle.
+        headers (dict): Les en-têtes HTTP à inclure dans la requête.
+        csv_string (str): Les données CSV à envoyer.
+
+    Returns:
+        dict: La réponse JSON de l'API du modèle.
+
+    Raises:
+        HTTPException: Si la requête échoue après plusieurs tentatives.
+    """
     async with session.post(model_api_url, headers=headers, data=csv_string, timeout=10) as response:
         if response.status == 200:
             return await response.json()
@@ -70,6 +122,19 @@ async def fetch_prediction(session, model_api_url, headers, csv_string):
 
 @app.post("/prepare/")
 async def prepare_data(data: UrlInput, api_key: str = Depends(get_api_key)):
+    """
+    Prépare les données à partir d'une URL et interagit avec le modèle pour obtenir une prédiction.
+
+    Args:
+        data (UrlInput): Les données d'entrée contenant l'URL.
+        api_key (str): La clé API validée.
+
+    Returns:
+        dict: La prédiction du modèle sous forme de texte.
+
+    Raises:
+        HTTPException: Si une erreur survient lors de l'insertion dans la base de données.
+    """
     url = clean_url(data.url)
     features = extract_features(url)
     
@@ -144,8 +209,13 @@ async def prepare_data(data: UrlInput, api_key: str = Depends(get_api_key)):
 
     return {"prediction": prediction_str}
 
-
 def custom_openapi():
+    """
+    Personnalise le schéma OpenAPI pour inclure la sécurité de la clé API.
+
+    Returns:
+        dict: Le schéma OpenAPI personnalisé.
+    """
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
