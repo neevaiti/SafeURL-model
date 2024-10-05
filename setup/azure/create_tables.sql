@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS logs (
 
 CREATE TABLE model_versions (
     id SERIAL PRIMARY KEY,
-    version VARCHAR(50) UNIQUE NOT NULL,
+    version VARCHAR(255) UNIQUE NOT NULL,
     model_path TEXT NOT NULL,
     metrics JSONB,
     created_at TIMESTAMP NOT NULL
