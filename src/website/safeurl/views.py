@@ -17,7 +17,8 @@ import io
 import base64
 from django.http import HttpResponse
 import matplotlib
-matplotlib.use('Agg')  # Utiliser le backend Agg qui ne nécessite pas de serveur graphique
+
+
 
 load_dotenv()
 
@@ -86,7 +87,7 @@ def user_login(request):
         if user is not None:
             login(request, user)
             if user.is_staff:
-                return redirect('admin_home')  # Redirige vers la page d'accueil admin
+                return redirect('admin_home') 
             return redirect('predict')
     return render(request, 'login.html')
 
@@ -230,10 +231,10 @@ def inspect_model(request, version):
             raise Exception('Aucune métrique disponible pour ce modèle.')
 
         formatted_metrics = {
-            'accuracy': metrics['accuracy'],  # Provoque une erreur si 'accuracy' n'existe pas
+            'accuracy': metrics['metrics']['accuracy'],  
             'classes': {},
-            'macro_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['macro avg'].items()},  # Provoque une KeyError si 'macro avg' n'existe pas
-            'weighted_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['weighted avg'].items()}  # Pareil pour 'weighted avg'
+            'macro_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['macro avg'].items()}, 
+            'weighted_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['weighted avg'].items()} 
         }
 
         
