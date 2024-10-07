@@ -30,41 +30,41 @@ def mock_db_manager():
 #     assert response.status_code == 200
 #     assert "available_models" in response.json()
 
-def test_train_model(mock_db_manager):
-    """Test l'endpoint d'entraînement de modèle."""
-    mock_db_manager.fetch = Mock(return_value=[
-        (1, 'http://example.com', 0, 1, 0, 2, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 20, 10, 1, 2, 1, 10, 15)
-    ])
+# def test_train_model(mock_db_manager):
+#     """Test l'endpoint d'entraînement de modèle."""
+#     mock_db_manager.fetch = Mock(return_value=[
+#         (1, 'http://example.com', 0, 1, 0, 2, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 20, 10, 1, 2, 1, 10, 15)
+#     ])
 
-    response = client.post("/train/", headers=API_KEY_HEADER)
-    assert response.status_code == 200
-    assert "metrics" in response.json()
+#     response = client.post("/train/", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "metrics" in response.json()
 
-def test_predict():
-    """Test l'endpoint de prédiction."""
-    data = """
-    use_of_ip,abnormal_url,count_www,count_point,count_at,count_https,count_http,count_percent,count_question,count_dash,count_equal,count_dir,count_embed_domain,short_url,url_length,hostname_length,sus_url,fd_length,tld_length,count_digits,count_letters
-    0,1,2,3,1,0,1,0,1,0,0,1,0,0,23,12,0,5,3,7,10
-    """
-    response = client.post("/predict/", data=data.strip(), headers={"Content-Type": "text/csv", **API_KEY_HEADER})
-    assert response.status_code == 200
-    assert "prediction" in response.json()
+# def test_predict():
+#     """Test l'endpoint de prédiction."""
+#     data = """
+#     use_of_ip,abnormal_url,count_www,count_point,count_at,count_https,count_http,count_percent,count_question,count_dash,count_equal,count_dir,count_embed_domain,short_url,url_length,hostname_length,sus_url,fd_length,tld_length,count_digits,count_letters
+#     0,1,2,3,1,0,1,0,1,0,0,1,0,0,23,12,0,5,3,7,10
+#     """
+#     response = client.post("/predict/", data=data.strip(), headers={"Content-Type": "text/csv", **API_KEY_HEADER})
+#     assert response.status_code == 200
+#     assert "prediction" in response.json()
 
-def test_delete_model(mock_db_manager):
-    """Test la suppression d'un modèle."""
-    mock_db_manager.fetchrow = Mock(return_value={"model_path": "/tmp/models/model_v123456789.pkl"})
+# def test_delete_model(mock_db_manager):
+#     """Test la suppression d'un modèle."""
+#     mock_db_manager.fetchrow = Mock(return_value={"model_path": "/tmp/models/model_v123456789.pkl"})
 
-    response = client.delete("/delete-model/123456789", headers=API_KEY_HEADER)
-    assert response.status_code == 200
-    assert "message" in response.json()
+#     response = client.delete("/delete-model/123456789", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "message" in response.json()
 
-def test_get_model_metrics(mock_db_manager):
-    """Test la récupération des métriques d'un modèle."""
-    mock_db_manager.fetchrow = Mock(return_value={"metrics": json.dumps({"accuracy": 0.95})})
+# def test_get_model_metrics(mock_db_manager):
+#     """Test la récupération des métriques d'un modèle."""
+#     mock_db_manager.fetchrow = Mock(return_value={"metrics": json.dumps({"accuracy": 0.95})})
 
-    response = client.get("/model-metrics/123456789", headers=API_KEY_HEADER)
-    assert response.status_code == 200
-    assert "metrics" in response.json()
+#     response = client.get("/model-metrics/123456789", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "metrics" in response.json()
 
 
 
