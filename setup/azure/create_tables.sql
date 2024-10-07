@@ -1,18 +1,4 @@
-CREATE TABLE IF NOT EXISTS Model_predict (
-    url_id SERIAL PRIMARY KEY,
-    url TEXT,
-    type TEXT,
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS Model_results (
-    result_id SERIAL PRIMARY KEY,
-    url_id INTEGER REFERENCES Model_predict(url_id),
-    url TEXT,
-    result TEXT
-);
-
-CREATE TABLE IF NOT EXISTS Model_training (
+CREATE TABLE IF NOT EXISTS model_training (
     id SERIAL PRIMARY KEY,
     url TEXT,
     type INTEGER,
@@ -39,17 +25,26 @@ CREATE TABLE IF NOT EXISTS Model_training (
     tld_length INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS List_url (
+CREATE TABLE IF NOT EXISTS list_url (
     id SERIAL PRIMARY KEY,
     url TEXT,
     type TEXT
 );
 
-CREATE TABLE IF NOT EXISTS Log (
+CREATE TABLE IF NOT EXISTS logs (
     id SERIAL PRIMARY KEY,
     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     level TEXT,
     message TEXT
 );
+
+CREATE TABLE model_versions (
+    id SERIAL PRIMARY KEY,
+    version VARCHAR(255) UNIQUE NOT NULL,
+    model_path TEXT NOT NULL,
+    metrics JSONB,
+    created_at TIMESTAMP NOT NULL
+);
+
 
 ALTER TABLE List_url ADD CONSTRAINT unique_url UNIQUE (url);

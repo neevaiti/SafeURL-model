@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}SafeURL - Inscription{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Inscription</h1>
+    <form method="post" class="needs-validation" novalidate>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">S'inscrire</button>
+    </form>
+    <p class="mt-3">Déjà un compte? <a href="{% url 'login' %}">Connectez-vous ici</a>.</p>
+</div>
+{% endblock %}

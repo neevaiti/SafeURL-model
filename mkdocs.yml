@@ -1,0 +1,8 @@
+site_name: Documentation SafeURL
+
+theme:
+  name: mkdocs
+  palette:
+    primary: indigo
+    accent: deep_orange
+
