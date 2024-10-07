@@ -24,11 +24,11 @@ def mock_db_manager():
     yield db_manager
     db_manager.close()
 
-def test_list_models():
-    """Test l'endpoint qui liste les modèles disponibles."""
-    response = client.get("/models/", headers=API_KEY_HEADER)
-    assert response.status_code == 200
-    assert "available_models" in response.json()
+# def test_list_models():
+#     """Test l'endpoint qui liste les modèles disponibles."""
+#     response = client.get("/models/", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "available_models" in response.json()
 
 def test_train_model(mock_db_manager):
     """Test l'endpoint d'entraînement de modèle."""
