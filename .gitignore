@@ -286,8 +286,3 @@ pip-selfcheck.json
 
 *.csv
 *.pkl
-./dataset/scam-urls.txt
-.json
-./dataset
-.dataset
-/dataset/
