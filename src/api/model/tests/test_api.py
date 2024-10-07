@@ -19,7 +19,7 @@ def mock_db_manager():
     """Configure le gestionnaire de base de données pour les tests."""
     db_manager.connect()
     db_manager.conn = sqlite3.connect(":memory:")
-    with open("/Users/ant/Desktop/Projects/SafeURL-model/src/api/model/tests/schema.sql", "r") as f:
+    with open("src/api/model/tests/schema.sql", "r") as f:
         db_manager.conn.executescript(f.read())
     yield db_manager
     db_manager.close()
