@@ -202,6 +202,77 @@ def list_models(request):
     models = response.json().get('available_models', [])
     return render(request, 'admin/list_models.html', {'models': models})
 
+
+# def format_metrics(metrics):
+#     """Format metrics by replacing '-' with '_' in all dictionary keys."""
+#     return {k.replace('-', '_'): (format_metrics(v) if isinstance(v, dict) else v) for k, v in metrics.items()}
+
+
+# def get_model_metrics(version):
+#     """Retrieve model metrics from the API and format them."""
+#     headers = {'X-API-Key': API_MODEL_KEY}
+#     try:
+#         # Requête à l'API pour récupérer les métriques
+#         response = requests.get(f'http://api_model:12500/model-metrics/{version}', headers=headers)
+#         response.raise_for_status()  # Raise an HTTPError for bad responses (4xx, 5xx)
+
+#         metrics_data = response.json().get('metrics', {})
+#         if not metrics_data:
+#             raise ValueError('Aucune métrique disponible pour ce modèle.')
+
+#         # Clés des métriques à extraire et formater
+#         key_metrics = ['accuracy', 'macro avg', 'weighted avg']
+        
+#         # Formattage des métriques
+#         formatted_metrics = {'classes': {}}
+#         for key in key_metrics:
+#             formatted_key = key.replace('-', '_')
+#             if key == 'accuracy':
+#                 formatted_metrics['accuracy'] = metrics_data['metrics'].get('accuracy')
+#             else:
+#                 formatted_metrics[formatted_key] = format_metrics(metrics_data['metrics'].get(key, {}))
+
+#         return formatted_metrics
+
+#     except requests.exceptions.RequestException as e:
+#         raise Exception(f"Erreur lors de la récupération des métriques : {str(e)}")
+#     except ValueError as e:
+#         raise Exception(str(e))
+    
+
+# @staff_member_required
+# def inspect_model(request, version):
+#     """
+#     View to inspect a specific model.
+
+#     Retrieves and displays the metrics of a specific model from the model API.
+
+#     Args:
+#         request (HttpRequest): The HTTP request object.
+#         version (str): The version of the model to inspect.
+
+#     Returns:
+#         HttpResponse: The HTTP response with the model metrics or an error.
+#     """
+#     error_message = None
+#     formatted_metrics = None
+
+#     try:
+#         formatted_metrics = get_model_metrics(version)
+#     except Exception as e:
+#         error_message = str(e)
+
+#     context = {
+#         'version': version,
+#         'metrics': formatted_metrics,
+#         'error_message': error_message
+#     }
+
+#     return render(request, 'admin/inspect_model.html', context)
+
+
+
+
 @staff_member_required
 def inspect_model(request, version):
     """
@@ -229,13 +300,18 @@ def inspect_model(request, version):
 
         if not metrics:
             raise Exception('Aucune métrique disponible pour ce modèle.')
+        
+        key_metrics = ['accuracy', 'macro avg', 'weighted avg']
+        
+        for key in key_metrics:
+            
 
-        formatted_metrics = {
-            'accuracy': metrics['metrics']['accuracy'],  
-            'classes': {},
-            'macro_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['macro avg'].items()}, 
-            'weighted_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['weighted avg'].items()} 
-        }
+            formatted_metrics = {
+                'accuracy': metrics['accuracy'],
+                'classes': {},
+                'macro_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['macro avg'].items()}, 
+                'weighted_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['weighted avg'].items()} 
+            }
 
         
         for key, value in metrics['metrics'].items():
@@ -254,48 +330,48 @@ def inspect_model(request, version):
     return render(request, 'admin/inspect_model.html', context)
 
 
-# def inspect_model(request, version):
-#     """
-#     View to inspect a specific model.
+def inspect_model(request, version):
+    """
+    View to inspect a specific model.
 
-#     Retrieves and displays the metrics of a specific model from the model API.
+    Retrieves and displays the metrics of a specific model from the model API.
 
-#     Args:
-#         request (HttpRequest): The HTTP request object.
-#         version (str): The version of the model to inspect.
+    Args:
+        request (HttpRequest): The HTTP request object.
+        version (str): The version of the model to inspect.
 
-#     Returns:
-#         HttpResponse: The HTTP response with the model metrics or an error.
-#     """
-#     headers = {'X-API-Key': API_MODEL_KEY}
-#     response = requests.get(f'http://api_model:12500/model-metrics/{version}', headers=headers)
+    Returns:
+        HttpResponse: The HTTP response with the model metrics or an error.
+    """
+    headers = {'X-API-Key': API_MODEL_KEY}
+    response = requests.get(f'http://api_model:12500/model-metrics/{version}', headers=headers)
     
-#     if response.status_code != 200:
-#         return render(request, 'admin/error.html', {'error': 'Impossible de récupérer les métriques du modèle'})
+    if response.status_code != 200:
+        return render(request, 'admin/error.html', {'error': 'Impossible de récupérer les métriques du modèle'})
 
-#     metrics = response.json().get('metrics', {})
+    metrics = response.json().get('metrics', {})
 
-#     if not metrics:
-#         return render(request, 'admin/error.html', {'error': 'Aucune métrique disponible pour ce modèle'})
+    if not metrics:
+        return render(request, 'admin/error.html', {'error': 'Aucune métrique disponible pour ce modèle'})
 
-#     if metrics:
-#         formatted_metrics = {
-#             'accuracy': metrics['metrics']['accuracy'],
-#             'classes': {},
-#             'macro_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['macro avg'].items()},
-#             'weighted_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['weighted avg'].items()}
-#         }
+    if metrics:
+        formatted_metrics = {
+            'accuracy': metrics['metrics']['accuracy'],
+            'classes': {},
+            'macro_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['macro avg'].items()},
+            'weighted_avg': {k.replace('-', '_'): v for k, v in metrics['metrics']['weighted avg'].items()}
+        }
         
-#         for key, value in metrics['metrics'].items():
-#             if key not in ['accuracy', 'macro avg', 'weighted avg']:
-#                 formatted_metrics['classes'][key] = {k.replace('-', '_'): v for k, v in value.items()}
+        for key, value in metrics['metrics'].items():
+            if key not in ['accuracy', 'macro avg', 'weighted avg']:
+                formatted_metrics['classes'][key] = {k.replace('-', '_'): v for k, v in value.items()}
 
-#     context = {
-#         'version': version,
-#         'metrics': formatted_metrics,
-#     }
+    context = {
+        'version': version,
+        'metrics': formatted_metrics,
+    }
 
-#     return render(request, 'admin/inspect_model.html', context)
+    return render(request, 'admin/inspect_model.html', context)
 
 @staff_member_required
 def delete_model(request, version):

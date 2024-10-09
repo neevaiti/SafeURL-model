@@ -33,20 +33,20 @@ services:
     volumes:
       - models:/app/models
 
-  api_database:
-    build: ./src/api/database/
-    image: neevaiti/api_database:latest
-    ports:
-      - 12400:12400
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_PORT=${DB_PORT}
-      - DB_API_KEY=${DB_API_KEY}
-    networks:
-      - api_network
+  # api_database:
+  #   build: ./src/api/database/
+  #   image: neevaiti/api_database:latest
+  #   ports:
+  #     - 12400:12400
+  #   environment:
+  #     - DB_HOST=${DB_HOST}
+  #     - DB_USER=${DB_USER}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     - DB_NAME=${DB_NAME}
+  #     - DB_PORT=${DB_PORT}
+  #     - DB_API_KEY=${DB_API_KEY}
+  #   networks:
+  #     - api_network
 
   web:
     build: ./src/website/
@@ -69,25 +69,25 @@ services:
     depends_on:
       - api_interact
       - api_model
-      - api_database
+      # - api_database
 
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    networks:
-      - api_network
+#   prometheus:
+#     image: prom/prometheus:latest
+#     volumes:
+#       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+#     ports:
+#       - "9090:9090"
+#     networks:
+#       - api_network
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-storage:/var/lib/grafana
-    networks:
-      - api_network
+#   grafana:
+#     image: grafana/grafana:latest
+#     ports:
+#       - "3000:3000"
+#     volumes:
+#       - grafana-storage:/var/lib/grafana
+#     networks:
+#       - api_network
 
 networks:
   api_network:
