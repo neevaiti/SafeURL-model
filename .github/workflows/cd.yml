@@ -3,12 +3,13 @@ name: CD Pipeline
 on:
   push:
     branches:
-      - main  # Déployer sur la branche main
+      - main
 
 jobs:
   build_and_push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+    needs: test
     env:
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_USER: ${{ secrets.DB_USER }}
@@ -36,6 +37,10 @@ jobs:
         run: |
           docker compose build
           docker compose push
+
+      - name: Clean up Docker images
+        run: docker image prune -af
+
 
 #  deploy_interact:
 #    name: Deploy API Interact to Azure Container Instances
@@ -73,13 +78,13 @@ jobs:
 #    name: Deploy Model API to Azure Container Instances
 #    runs-on: ubuntu-latest
 #    needs: build_and_push
-#
+
 #    steps:
 #      - name: Azure Login
 #        uses: azure/login@v1
 #        with:
 #          creds: ${{ secrets.AZURE_CREDENTIALS }}
-#
+
 #      - name: Deploy Model API to Azure Container Instances
 #        uses: azure/aci-deploy@v1
 #        with:
@@ -136,13 +141,13 @@ jobs:
 #    name: Deploy Web to Azure Container Instances
 #    runs-on: ubuntu-latest
 #    needs: build_and_push
-#
+
 #    steps:
 #      - name: Azure Login
 #        uses: azure/login@v1
 #        with:
 #          creds: ${{ secrets.AZURE_CREDENTIALS }}
-#
+
 #      - name: Deploy Web to Azure Container Instances
 #        uses: azure/aci-deploy@v1
 #        with:

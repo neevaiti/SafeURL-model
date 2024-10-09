@@ -6,6 +6,12 @@
 <div class="container mt-4">
     <h2>Inspection du modèle {{ version }}</h2>
 
+    {% if error_message %}
+        <div class="alert alert-danger" role="alert">
+            <strong>Erreur :</strong> {{ error_message }}
+        </div>
+    {% endif %}
+
     {% if metrics %}
         <h3>Métriques :</h3>
         

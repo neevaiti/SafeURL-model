@@ -92,3 +92,12 @@ Un système de logging est implémenté pour enregistrer les activités importan
 
 ## Documentation OpenAPI
 L'API génère automatiquement une documentation OpenAPI, accessible via l'interface Swagger UI, détaillant tous les endpoints, leurs paramètres, et les réponses attendues.
+
+
+
+En tant qu'utilisateur, je veux un espace personnel sécurisé pour accéder aux résultats des prédictions de sécurité des URL.
+En tant qu'utilisateur, je veux soumettre manuellement une URL pour obtenir une prédiction de sécurité.
+En tant qu'utilisateur, je veux enregistrer les résultats des prédictions réalisées pour les consulter ultérieurement.
+En tant qu'administrateur, je veux accéder à un tableau de bord pour gérer les modèles d'intelligence artificielle.
+En tant qu'administrateur, je veux pouvoir entraîner un nouveau modèle via l'interface d'administration.
+En tant qu'administrateur, je veux pouvoir lister, charger et supprimer des modèles existants.

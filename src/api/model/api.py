@@ -29,12 +29,22 @@ logger = logging.getLogger(__name__)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 API_MODEL_KEY = os.getenv("API_MODEL_KEY")
+
+# Conversion de la variable d'environnement en booléen pour savoir si on est en mode test
 IS_TEST = os.getenv("IS_TEST", "false").lower() == "true"
 
-# Model storage path
-MODEL_DIR = "/app/models"
+# Chemin de stockage des modèles
+MODEL_DIR = "/tmp/models" if IS_TEST else "/app/models"
+
+# Création du répertoire de stockage des modèles
 if not os.path.exists(MODEL_DIR):
-    os.makedirs(MODEL_DIR)
+    try:
+        os.makedirs(MODEL_DIR)
+    except OSError as e:
+        if e.errno == 30:  # Code d'erreur pour "Read-only file system"
+            logger.error(f"Impossible de créer le répertoire: {e}")
+        else:
+            raise
 
 logger.debug(f"Model directory set to: {MODEL_DIR}")
 
@@ -152,10 +162,10 @@ class ModelManager:
             logger.error(f"Error while saving model: {str(e)}")
             raise
 
-# Class for log management and database connection
+# Class for managing database connection
 class DatabaseManager:
     """
-    Class for managing logs and database connection.
+    Class for managing database connection.
     """
 
     def __init__(self):
@@ -169,7 +179,7 @@ class DatabaseManager:
         Uses an in-memory database for testing, otherwise connects to a PostgreSQL database.
         """
         if os.getenv("IS_TEST", "false").lower() == "true":
-            self.conn = sqlite3.connect(":memory:")
+            self.conn = sqlite3.connect(":memory:", check_same_thread=False)
         else:
             self.conn = await asyncpg.connect(
                 user=os.getenv("DB_USER"),
@@ -249,39 +259,23 @@ async def verify_api_key(request: Request, call_next):
         Response: The HTTP response after API key verification.
     """
     excluded_paths = ["/docs", "/openapi.json", "/redoc"]
+    
     if request.url.path not in excluded_paths:
         api_key = request.headers.get("X-API-Key")
         if not api_key or api_key != API_MODEL_KEY:
-            raise HTTPException(status_code=401, detail="Unauthorized access")
+            raise HTTPException(status_code=401, detail="Unauthorized access: Invalid or missing API key")
+    
     return await call_next(request)
 
-# Function to verify and get the API key
-async def get_api_key(api_key_header: str = Security(APIKeyHeader(name="X-API-Key", auto_error=False))):
-    """
-    Verify and get the API key from the request header.
-
-    Args:
-        api_key_header (str): The API key provided in the header.
-
-    Returns:
-        str: The API key if valid.
-
-    Raises:
-        HTTPException: If the API key is invalid.
-    """
-    if api_key_header == API_MODEL_KEY:
-        return api_key_header
-    raise HTTPException(status_code=401, detail="Invalid API key")
 
 # Endpoint for prediction
 @app.post("/predict/")
-async def predict(request: Request, api_key: str = Depends(get_api_key)):
+async def predict(request: Request):
     """
     Endpoint to perform a prediction from the provided data.
 
     Args:
         request (Request): The HTTP request object containing CSV data.
-        api_key (str): The validated API key.
 
     Returns:
         dict: The prediction results.
@@ -309,11 +303,62 @@ async def predict(request: Request, api_key: str = Depends(get_api_key)):
     finally:
         await db_manager.close()
 
-# Endpoint to train a new model with descriptive column names
-@app.post("/train/")
-async def train(api_key: str = Depends(get_api_key)):
+
+
+async def train_model(db_manager):
     """
-    Endpoint to train a new model with available data.
+    Function to train the model using data from the database.
+
+    Args:
+        db_manager: The database manager for fetching data.
+
+    Returns:
+        model: Trained model.
+        report: Training metrics report.
+
+    Raises:
+        HTTPException: If an error occurs during training.
+    """
+    logger.info("Starting model training")
+
+    # Fetch the training data from the database
+    rows = await db_manager.fetch("SELECT * FROM model_training")
+
+    # Define column names corresponding to your table
+    columns = ['id', 'url', 'type', 'use_of_ip', 'abnormal_url', 'count_www', 'count_point', 'count_at', 
+               'count_https', 'count_http', 'count_percent', 'count_question', 'count_dash', 'count_equal', 
+               'count_dir', 'count_embed_domain', 'short_url', 'url_length', 'hostname_length', 'sus_url', 
+               'fd_length', 'tld_length', 'count_digits', 'count_letters']
+
+    # Convert the fetched rows into a DataFrame
+    data = pd.DataFrame(rows, columns=columns)
+    if data.empty:
+        raise HTTPException(status_code=400, detail="No training data available.")
+
+    # Select features and target
+    X = data[['use_of_ip', 'abnormal_url', 'count_point', 'count_www', 'count_at', 'count_dir',
+              'count_embed_domain', 'short_url', 'count_https', 'count_http', 'count_percent', 
+              'count_question', 'count_dash', 'count_equal', 'url_length', 'hostname_length',
+              'sus_url', 'fd_length', 'tld_length', 'count_digits', 'count_letters']]
+    y = data['type']
+
+    # Train the model
+    model = RandomForestClassifier()
+    model.fit(X, y)
+
+    # Predictions and metrics
+    y_pred = model.predict(X)
+    report = classification_report(y, y_pred, output_dict=True)
+
+    return model, report
+
+
+
+# Endpoint to train a new model
+@app.post("/train/")
+async def train():
+    """
+    Endpoint to train a new model and save the model metrics to the database.
 
     Args:
         api_key (str): The validated API key.
@@ -326,46 +371,27 @@ async def train(api_key: str = Depends(get_api_key)):
     """
     await db_manager.connect()
     try:
-        logger.info("Starting model training")
+        model, report = await train_model(db_manager)
 
-        rows = await db_manager.fetch("SELECT * FROM model_training")
+        metrics_to_save = {
+            "metrics": report
+        }
 
-        columns = ['id', 'url', 'type', 'use_of_ip', 'abnormal_url', 'count_www', 'count_point', 'count_at', 
-                   'count_https', 'count_http', 'count_percent', 'count_question', 'count_dash', 'count_equal', 
-                   'count_dir', 'count_embed_domain', 'short_url', 'url_length', 'hostname_length', 'sus_url', 
-                   'fd_length', 'tld_length', 'count_digits', 'count_letters']
-
-        data = pd.DataFrame(rows, columns=columns)
-        if data.empty:
-            raise HTTPException(status_code=400, detail="No training data available.")
-
-        X = data[['use_of_ip', 'abnormal_url', 'count_point', 'count_www', 'count_at', 'count_dir',
-                  'count_embed_domain', 'short_url', 'count_https', 'count_http', 'count_percent', 
-                  'count_question', 'count_dash', 'count_equal', 'url_length', 'hostname_length',
-                  'sus_url', 'fd_length', 'tld_length', 'count_digits', 'count_letters']]
-        y = data['type']
-
-        model = RandomForestClassifier()
-        model.fit(X, y)
-
-        y_pred = model.predict(X)
-        report = classification_report(y, y_pred, output_dict=True)
-
-        metrics_json = json.dumps({"metrics": report})
-        await model_manager.save_model_version(model, metrics_json)
-        logger.info(f"Metrics saved: {metrics_json}")
+        await model_manager.save_model_version(model, metrics_to_save)
 
         logger.info("Model training completed successfully")
-        return {"detail": "Model training completed successfully", "metrics": report}
+        return {"detail": "Model training completed successfully", "metrics": metrics_to_save}
+
     except Exception as e:
         logger.error(f"Training error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An error occurred during training.")
     finally:
         await db_manager.close()
 
+
 # Endpoint to delete a specific model
 @app.delete("/delete-model/{version}")
-async def delete_model(version: str, api_key: str = Depends(get_api_key)):
+async def delete_model(version: str):
     """
     Endpoint to delete a specific model.
 
@@ -418,15 +444,16 @@ async def delete_model(version: str, api_key: str = Depends(get_api_key)):
     finally:
         await db_manager.close()
 
+
+
 # Endpoint to retrieve metrics of a specific model
 @app.get("/model-metrics/{version}")
-async def get_model_metrics(version: str, api_key: str = Depends(get_api_key)):
+async def get_model_metrics(version: str):
     """
     Endpoint to retrieve metrics of a specific model.
 
     Args:
         version (str): The version of the model to retrieve metrics for.
-        api_key (str): The validated API key.
 
     Returns:
         dict: The model metrics.
@@ -451,6 +478,7 @@ async def get_model_metrics(version: str, api_key: str = Depends(get_api_key)):
         raise HTTPException(status_code=500, detail="Error during metric retrieval")
     finally:
         await db_manager.close()
+
 
 # Endpoint to list available models
 @app.get("/models/")

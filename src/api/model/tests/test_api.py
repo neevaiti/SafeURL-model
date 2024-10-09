@@ -1,66 +1,88 @@
 import pytest
-import sqlite3
 import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from dotenv import load_dotenv
+import json
+import sqlite3
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
-from api.interact_model.api import app, get_db_connection
+from unittest.mock import Mock
+from dotenv import load_dotenv
+from api.model.api import app, db_manager, model_manager
 
-# load_dotenv()
+load_dotenv()
 
-# API_KEY = os.getenv("API_KEY")
+# Configure le mode de test
+os.environ["IS_TEST"] = "true"
+API_KEY_HEADER = {"X-API-Key": os.getenv("API_MODEL_KEY")}
+client = TestClient(app)
 
-# # Lire le fichier SQL et exécuter les commandes
-# def run_sql_script(connection, script_path):
-#     with open(script_path, 'r') as sql_file:
-#         sql_script = sql_file.read()
-#     cursor = connection.cursor()
-#     cursor.executescript(sql_script)
-#     connection.commit()
+@pytest.fixture
+def mock_db_manager():
+    """Configure le gestionnaire de base de données pour les tests."""
+    db_manager.connect()
+    db_manager.conn = sqlite3.connect(":memory:")
+    with open("src/api/model/tests/schema.sql", "r") as f:
+        db_manager.conn.executescript(f.read())
+    yield db_manager
+    db_manager.close()
 
-# # Fixture qui crée une base de données SQLite temporaire pour les tests
-# @pytest.fixture
-# def test_db():
-#     # Remonter à la racine du projet à partir de src/api/model/tests
-#     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
-#     script_path = os.path.join(project_root, "setup", "azure_database", "db_test_create_tables.sql")
-    
-#     connection = sqlite3.connect(":memory:")  # SQLite en mémoire
-#     run_sql_script(connection, script_path)  # Script SQL pour créer les tables
-#     yield connection
-#     connection.close()
-
-# # Surcharge la dépendance dans l'API avec la connexion à la base de tests
-# @pytest.fixture
-# def client(test_db):
-#     app.dependency_overrides[get_db_connection] = lambda: test_db
-#     with TestClient(app) as client:
-#         yield client
-
-# # Mock de l'appel à l'API de modèle
-# @pytest.fixture
-# def mock_fetch_prediction():
-#     with patch("api.interact_model.api.fetch_prediction", new_callable=AsyncMock) as mock:
-#         mock.return_value = {"prediction": [0]}  # Simule une prédiction 'safe'
-#         yield mock
-
-# # Test principal avec mock
-# def test_prepare_data(client, mock_fetch_prediction):
-#     # Inclure la clé API dans les en-têtes de la requête
-#     headers = {"X-API-Key": API_KEY}
-#     response = client.post("/prepare/", json={"url": "http://example.com"}, headers=headers)
-    
-#     # Vérifie que la réponse est correcte
+# def test_list_models():
+#     """Test l'endpoint qui liste les modèles disponibles."""
+#     response = client.get("/models/", headers=API_KEY_HEADER)
 #     assert response.status_code == 200
-#     assert response.json() == {"prediction": "safe"}
+#     assert "available_models" in response.json()
 
-#     # Vérifie que l'appel à l'API de modèle a été fait correctement
-#     mock_fetch_prediction.assert_called_once()
-    
+# def test_train_model(mock_db_manager):
+#     """Test l'endpoint d'entraînement de modèle."""
+#     mock_db_manager.fetch = Mock(return_value=[
+#         (1, 'http://example.com', 0, 1, 0, 2, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 20, 10, 1, 2, 1, 10, 15)
+#     ])
+
+#     response = client.post("/train/", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "metrics" in response.json()
+
+# def test_predict():
+#     """Test l'endpoint de prédiction."""
+#     data = """
+#     use_of_ip,abnormal_url,count_www,count_point,count_at,count_https,count_http,count_percent,count_question,count_dash,count_equal,count_dir,count_embed_domain,short_url,url_length,hostname_length,sus_url,fd_length,tld_length,count_digits,count_letters
+#     0,1,2,3,1,0,1,0,1,0,0,1,0,0,23,12,0,5,3,7,10
+#     """
+#     response = client.post("/predict/", data=data.strip(), headers={"Content-Type": "text/csv", **API_KEY_HEADER})
+#     assert response.status_code == 200
+#     assert "prediction" in response.json()
+
+# def test_delete_model(mock_db_manager):
+#     """Test la suppression d'un modèle."""
+#     mock_db_manager.fetchrow = Mock(return_value={"model_path": "/tmp/models/model_v123456789.pkl"})
+
+#     response = client.delete("/delete-model/123456789", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "message" in response.json()
+
+# def test_get_model_metrics(mock_db_manager):
+#     """Test la récupération des métriques d'un modèle."""
+#     mock_db_manager.fetchrow = Mock(return_value={"metrics": json.dumps({"accuracy": 0.95})})
+
+#     response = client.get("/model-metrics/123456789", headers=API_KEY_HEADER)
+#     assert response.status_code == 200
+#     assert "metrics" in response.json()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def test_subtraction():
     assert 10 - 5 == 5

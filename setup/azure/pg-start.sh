@@ -42,7 +42,7 @@ echo "Creating tables using $sqlScript"
 psql "host=$SERVER_ADDRESS dbname=$DB_NAME user=$ADMIN_USER password=$ADMIN_PASS sslmode=require" -f $sqlScript
 
 #### ADD DATA TO List_url ####
-listurlcsv="/Users/ant/Desktop/Projects/SafeURL-model/dataset/df_1000.csv"
+listurlcsv="/Users/ant/Desktop/Projects/SafeURL-model/dataset/df_url.csv"
 echo "Importing data from $listurlcsv to list_url table"
 psql "host=$SERVER_ADDRESS dbname=$DB_NAME user=$ADMIN_USER password=$ADMIN_PASS sslmode=require" -c "\copy list_url FROM '$listurlcsv' DELIMITER ',' CSV HEADER;"
 
