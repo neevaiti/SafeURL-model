@@ -137,7 +137,7 @@ soupsieve==2.5
 SQLAlchemy==2.0.29
 sqlparse==0.5.1
 stack-data==0.6.3
-starlette==0.35.1
+starlette==0.40.0
 sympy==1.12
 tenacity==9.0.0
 threadpoolctl==3.2.0
