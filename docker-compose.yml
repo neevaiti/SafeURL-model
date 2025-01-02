@@ -71,23 +71,23 @@ services:
       - api_model
       # - api_database
 
-#   prometheus:
-#     image: prom/prometheus:latest
-#     volumes:
-#       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-#     ports:
-#       - "9090:9090"
-#     networks:
-#       - api_network
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - api_network
 
-#   grafana:
-#     image: grafana/grafana:latest
-#     ports:
-#       - "3000:3000"
-#     volumes:
-#       - grafana-storage:/var/lib/grafana
-#     networks:
-#       - api_network
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - api_network
 
 networks:
   api_network:
